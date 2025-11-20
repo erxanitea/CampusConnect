@@ -56,7 +56,8 @@ class _HomePageState extends State<HomePage> {
     {
       'title': 'Alex Chen',
       'time': '1d ago',
-      'body': 'Just finished my final project! Feeling relieved 😅 #StudentLife',
+      'body':
+          'Just finished my final project! Feeling relieved 😅 #StudentLife',
       'pinned': false,
       'reactions': {'likes': 23, 'comments': 5, 'shares': 2},
     },
@@ -85,12 +86,12 @@ class _HomePageState extends State<HomePage> {
                     const SizedBox(height: 20),
                     _buildRecentMessagesCard(theme),
                     const SizedBox(height: 18),
-                    ..._announcements
-                        .map((post) => Padding(
-                              padding: const EdgeInsets.only(bottom: 18),
-                              child: _buildAnnouncementCard(post, theme),
-                            ))
-                        .toList(),
+                    ..._announcements.map(
+                      (post) => Padding(
+                        padding: const EdgeInsets.only(bottom: 18),
+                        child: _buildAnnouncementCard(post, theme),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -225,10 +226,7 @@ class _HomePageState extends State<HomePage> {
         ),
         borderRadius: BorderRadius.circular(26),
         border: Border(
-          left: BorderSide(
-            color: const Color(0xFFB01F1F),
-            width: 5,
-          ),
+          left: BorderSide(color: const Color(0xFFB01F1F), width: 5),
         ),
         boxShadow: [
           BoxShadow(
@@ -246,8 +244,10 @@ class _HomePageState extends State<HomePage> {
             children: [
               Row(
                 children: [
-                  Icon(Icons.chat_bubble_outline,
-                      color: const Color(0xFF7C000F)),
+                  Icon(
+                    Icons.chat_bubble_outline,
+                    color: const Color(0xFF7C000F),
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     'Recent Messages',
@@ -304,12 +304,14 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                   if (hasBadge)
-                    _buildBadge(message['badge'] as int,
-                        color: const Color(0xFFBD2C1A)),
+                    _buildBadge(
+                      message['badge'] as int,
+                      color: const Color(0xFFBD2C1A),
+                    ),
                 ],
               ),
             );
-          }).toList(),
+          }),
         ],
       ),
     );
@@ -363,8 +365,7 @@ class _HomePageState extends State<HomePage> {
                         Expanded(
                           child: Text(
                             post['title'] as String,
-                            style:
-                                theme.textTheme.titleMedium?.copyWith(
+                            style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -400,24 +401,28 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
           const SizedBox(height: 16),
-          const Divider(
-            color: Color(0xFFEBD9D4),
-            thickness: 0.8,
-            height: 0,
-          ),
+          const Divider(color: Color(0xFFEBD9D4), thickness: 0.8, height: 0),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _reactionItem(Icons.thumb_up_alt_outlined,
-                  post['reactions']['likes'] as int),
-              _reactionItem(Icons.chat_bubble_outline,
-                  post['reactions']['comments'] as int),
-              _reactionItem(Icons.share_outlined,
-                  post['reactions']['shares'] as int),
+              _reactionItem(
+                Icons.thumb_up_alt_outlined,
+                post['reactions']['likes'] as int,
+              ),
+              _reactionItem(
+                Icons.chat_bubble_outline,
+                post['reactions']['comments'] as int,
+              ),
+              _reactionItem(
+                Icons.share_outlined,
+                post['reactions']['shares'] as int,
+              ),
               const Icon(Icons.thumb_up, color: Color(0xFF7C000F)),
-              const Icon(Icons.emoji_emotions_outlined,
-                  color: Color(0xFF7C000F)),
+              const Icon(
+                Icons.emoji_emotions_outlined,
+                color: Color(0xFF7C000F),
+              ),
             ],
           ),
         ],
@@ -451,9 +456,11 @@ class _HomePageState extends State<HomePage> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon,
-              size: 14,
-              color: filled ? Colors.white : const Color(0xFF8D0B15)),
+          Icon(
+            icon,
+            size: 14,
+            color: filled ? Colors.white : const Color(0xFF8D0B15),
+          ),
           const SizedBox(width: 4),
           Text(
             label,
@@ -477,7 +484,10 @@ class _HomePageState extends State<HomePage> {
       ),
       child: Text(
         '$count',
-        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -491,9 +501,7 @@ class _HomePageState extends State<HomePage> {
         backgroundColor: const Color(0xFF8D0B15),
         foregroundColor: Colors.white,
         elevation: 10,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(34),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(34)),
         onPressed: () {},
         child: Stack(
           alignment: Alignment.center,
@@ -563,10 +571,7 @@ class _HomePageState extends State<HomePage> {
   }) {
     final iconWidget = AnimatedContainer(
       duration: const Duration(milliseconds: 220),
-      padding: EdgeInsets.symmetric(
-        horizontal: active ? 14 : 10,
-        vertical: 10,
-      ),
+      padding: EdgeInsets.symmetric(horizontal: active ? 14 : 10, vertical: 10),
       decoration: BoxDecoration(
         color: active ? const Color(0xFFFFE7DF) : Colors.transparent,
         borderRadius: BorderRadius.circular(24),
@@ -585,8 +590,7 @@ class _HomePageState extends State<HomePage> {
           Positioned(
             right: -6,
             top: -2,
-            child: _buildBadge(badgeCount,
-                color: const Color(0xFFBD2C1A)),
+            child: _buildBadge(badgeCount, color: const Color(0xFFBD2C1A)),
           ),
       ],
     );
