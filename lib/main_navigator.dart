@@ -28,13 +28,12 @@ class _MainNavigatorState extends State<MainNavigator> {
   }
 
   Widget _buildPage(int index, Widget page) {
-    return WillPopScope(
-      onWillPop: () async {
-        if (_currentIndex != 0) {
+    return PopScope(
+      canPop: _currentIndex == 0,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _currentIndex != 0) {
           setState(() => _currentIndex = 0);
-          return false;
         }
-        return true;
       },
       child: page,
     );

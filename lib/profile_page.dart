@@ -342,8 +342,7 @@ class ProfilePage extends StatelessWidget {
                     accentColor: org['accent'] as Color,
                   ),
                 ),
-              )
-              .toList(),
+              ),
         ],
       ),
     );
@@ -361,7 +360,7 @@ class ProfilePage extends StatelessWidget {
             borderRadius: BorderRadius.circular(24),
           ),
           elevation: 6,
-          shadowColor: const Color(0xFFE84535).withOpacity(0.3),
+          shadowColor: const Color(0xFFE84535).withValues(alpha: 0.3),
         ),
         onPressed: () {},
         icon: const Icon(Icons.logout),
@@ -397,7 +396,7 @@ class _SectionCard extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 24,
             offset: const Offset(0, 12),
           ),
@@ -513,7 +512,7 @@ class _OrganizationTile extends StatelessWidget {
             height: 48,
             width: 48,
             decoration: BoxDecoration(
-              color: accentColor.withOpacity(0.15),
+              color: accentColor.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Icon(Icons.category_rounded, color: accentColor),
