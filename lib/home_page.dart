@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:stateful_widget/widgets/campus_bottom_nav.dart';
+import 'package:stateful_widget/widgets/floating_messages_button.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -69,12 +71,18 @@ class _HomePageState extends State<HomePage> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      floatingActionButton: _buildFloatingChatButton(),
+      floatingActionButton: FloatingMessagesButton(
+        badgeCount: 4,
+        onPressed: () {},
+      ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      bottomNavigationBar: _buildBottomNavigation(theme),
+      bottomNavigationBar: CampusBottomNav(
+        currentIndex: _navIndex,
+        onItemTapped: _handleNavTap,
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 120),
+          padding: const EdgeInsets.only(bottom: 30),
           child: Column(
             children: [
               _buildHeroHeader(context),
@@ -492,107 +500,25 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildFloatingChatButton() {
-    return SizedBox(
-      height: 68,
-      width: 68,
-      child: FloatingActionButton(
-        heroTag: 'messagesFab',
-        backgroundColor: const Color(0xFF8D0B15),
-        foregroundColor: Colors.white,
-        elevation: 10,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(34)),
-        onPressed: () {},
-        child: Stack(
-          alignment: Alignment.center,
-          clipBehavior: Clip.none,
-          children: [
-            const Icon(Icons.chat_bubble_outline, size: 26),
-            Positioned(
-              top: -25,
-              right: -20,
-              child: _buildBadge(4, color: const Color(0xFFE53935)),
-            ),
-          ],
-        ),
-      ),
-    );
+  void _handleNavTap(int index) {
+    if (index == 0) return;
+    if (index == 1) {
+      setState(() => _navIndex = index);
+      Navigator.pushNamed(context, '/marketplace').then((_) {
+        if (!mounted) return;
+        setState(() => _navIndex = 0);
+      });
+      return;
+    }
+    if (index == 4) {
+      setState(() => _navIndex = index);
+      Navigator.pushNamed(context, '/profile').then((_) {
+        if (!mounted) return;
+        setState(() => _navIndex = 0);
+      });
+      return;
+    }
+    setState(() => _navIndex = index);
   }
 
-  Widget _buildBottomNavigation(ThemeData theme) {
-    const navIcons = [
-      Icons.home_outlined,
-      Icons.storefront_outlined,
-      Icons.article_outlined,
-      Icons.notifications_none_rounded,
-      Icons.person_outline,
-    ];
-
-    const navActiveIcons = [
-      Icons.home_rounded,
-      Icons.storefront,
-      Icons.article,
-      Icons.notifications_active_outlined,
-      Icons.person,
-    ];
-
-    const labels = ['Home', 'Market', 'Wall', 'Alerts', 'Profile'];
-
-    return BottomNavigationBar(
-      currentIndex: _navIndex,
-      type: BottomNavigationBarType.fixed,
-      selectedItemColor: const Color(0xFF8D0B15),
-      unselectedItemColor: Colors.grey[500],
-      showUnselectedLabels: true,
-      selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w700),
-      unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500),
-      onTap: (index) => setState(() => _navIndex = index),
-      items: List.generate(labels.length, (index) {
-        final badge = index == 3 ? 2 : 0;
-        final isActive = index == _navIndex;
-        return BottomNavigationBarItem(
-          icon: _buildNavIcon(
-            navIcons[index],
-            navActiveIcons[index],
-            isActive,
-            badgeCount: badge,
-          ),
-          label: labels[index],
-        );
-      }),
-    );
-  }
-
-  Widget _buildNavIcon(
-    IconData icon,
-    IconData activeIcon,
-    bool active, {
-    int badgeCount = 0,
-  }) {
-    final iconWidget = AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      padding: EdgeInsets.symmetric(horizontal: active ? 14 : 10, vertical: 10),
-      decoration: BoxDecoration(
-        color: active ? const Color(0xFFFFE7DF) : Colors.transparent,
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Icon(
-        active ? activeIcon : icon,
-        color: active ? const Color(0xFF8D0B15) : Colors.grey[500],
-      ),
-    );
-
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        iconWidget,
-        if (badgeCount > 0)
-          Positioned(
-            right: -6,
-            top: -2,
-            child: _buildBadge(badgeCount, color: const Color(0xFFBD2C1A)),
-          ),
-      ],
-    );
-  }
 }

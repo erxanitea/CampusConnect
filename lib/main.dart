@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:stateful_widget/LoginForm.dart';
 import 'package:stateful_widget/RegisterPage.dart';
 import 'package:stateful_widget/home_page.dart';
+import 'package:stateful_widget/profile_page.dart';
+import 'package:stateful_widget/marketplace_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -55,6 +57,8 @@ class MyApp extends StatelessWidget {
         '/': (context) => const LoginForm(),
         '/register': (context) => const RegisterPage(),
         '/home': (context) => const HomePage(),
+        '/profile': (context) => const ProfilePage(),
+        '/marketplace': (context) => const MarketplacePage(),
       },
     );
   }
