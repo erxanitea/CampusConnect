@@ -42,6 +42,14 @@ class _LoginFormState extends State<LoginForm> {
     });
   }
 
+  void _handleGoogleSignIn() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Google Sign-In with school email coming soon.'),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -128,7 +136,7 @@ class _LoginFormState extends State<LoginForm> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Sign in with your school email',
+                          'Sign in with your school email or verified Google account',
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: Colors.grey[600],
                           ),
@@ -221,7 +229,7 @@ class _LoginFormState extends State<LoginForm> {
                                 horizontal: 12,
                               ),
                               child: Text(
-                                'NEW TO CAMPUS?',
+                                'CHOOSE A SIGN-IN METHOD',
                                 style: theme.textTheme.labelMedium?.copyWith(
                                   color: Colors.grey[600],
                                   letterSpacing: 1.2,
@@ -234,54 +242,48 @@ class _LoginFormState extends State<LoginForm> {
                         const SizedBox(height: 16),
                         SizedBox(
                           width: double.infinity,
-                          child: ElevatedButton(
-                            style: ButtonStyle(
-                              backgroundColor: WidgetStateProperty.resolveWith((
-                                states,
-                              ) {
-                                if (states.contains(WidgetState.hovered) ||
-                                    states.contains(WidgetState.focused) ||
-                                    states.contains(WidgetState.pressed)) {
-                                  return const Color(0xFFFF962E);
-                                }
-                                return Colors.white;
-                              }),
-                              foregroundColor: WidgetStateProperty.all(
-                                const Color(0xFF5B0B0C),
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                              side: const BorderSide(
+                                color: Color(0xFFE5D9D2),
+                                width: 1.2,
                               ),
-                              overlayColor: WidgetStateProperty.all(
-                                const Color(0x33FF962E),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
                               ),
-                              side: WidgetStateProperty.all(
-                                const BorderSide(
-                                  color: Color(0xFFE5D9D2),
-                                  width: 1.2,
-                                ),
-                              ),
-                              padding: WidgetStateProperty.all(
-                                const EdgeInsets.symmetric(vertical: 16),
-                              ),
-                              shape: WidgetStateProperty.all(
-                                RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(30),
-                                ),
-                              ),
-                              elevation: WidgetStateProperty.resolveWith(
-                                (states) => states.contains(WidgetState.hovered)
-                                    ? 3
-                                    : 0,
-                              ),
+                              backgroundColor: Colors.white,
+                              foregroundColor: const Color(0xFF5B0B0C),
                             ),
-                            onPressed: () {
-                              Navigator.pushNamed(context, '/register');
-                            },
-                            child: const Text(
-                              'Create Account',
-                              style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w600,
-                              ),
+                            onPressed: _handleGoogleSignIn,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Image.asset(
+                                  'assets/icons/google.png',
+                                  height: 22,
+                                  width: 22,
+                                ),
+                                const SizedBox(width: 12),
+                                const Text(
+                                  'Continue with Google',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                             ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Use your university-managed Google account to sign in—no separate sign-up, campus emails only.',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: Colors.grey[600],
                           ),
                         ),
                       ],
