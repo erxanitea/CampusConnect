@@ -1,12 +1,60 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:stateful_widget/LoginForm.dart';
 import 'package:stateful_widget/RegisterPage.dart';
 import 'package:stateful_widget/home_page.dart';
 import 'package:stateful_widget/profile_page.dart';
 import 'package:stateful_widget/marketplace_page.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:stateful_widget/services/auth/google_auth.dart';
+import 'firebase_options.dart';
 
-void main() {
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+  options: DefaultFirebaseOptions.currentPlatform,
+);
   runApp(const MyApp());
+}
+
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: GoogleAuth().authStateChanges,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.active) {
+          final User? user = snapshot.data;
+
+          if (user != null) {
+            final email = user.email?.toLowerCase() ?? '';
+            if (!email.endsWith('@umindanao.edu.ph')) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                GoogleAuth().signOut();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Only University of Mindanao accounts are allowed'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              });
+              return const LoginForm();
+            }
+            return const HomePage();
+          }
+          return const LoginForm();
+        }
+        return const Scaffold(
+          body: Center(
+            child: CircularProgressIndicator(),
+          ), 
+        );
+      }
+    );
+  } 
 }
 
 class MyApp extends StatelessWidget {
@@ -54,7 +102,7 @@ class MyApp extends StatelessWidget {
       ),
       initialRoute: '/',
       routes: {
-        '/': (context) => const LoginForm(),
+        '/': (context) => const AuthWrapper(),
         '/register': (context) => const RegisterPage(),
         '/home': (context) => const HomePage(),
         '/profile': (context) => const ProfilePage(),

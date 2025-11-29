@@ -1,4 +1,6 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:stateful_widget/services/auth/google_auth.dart';
 
 class LoginForm extends StatefulWidget {
   const LoginForm({super.key});
@@ -18,12 +20,23 @@ class _LoginFormState extends State<LoginForm> {
   void initState() {
     errorMessage = "This is an error message";
     isError = false;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _disableBackButton();
+    });
     super.initState();
+  }
+
+  void _disableBackButton() {
+    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   @override
   void dispose() {
     super.dispose();
+  }
+
+  bool _isValidEmail(String email) {
+    return email.toLowerCase().endsWith('@umindanao.edu.ph');
   }
 
   void checkLogin(username, password) {
@@ -213,24 +226,86 @@ class _LoginFormState extends State<LoginForm> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            const Expanded(child: Divider()),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                              ),
-                              child: Text(
-                                'NEW TO CAMPUS?',
-                                style: theme.textTheme.labelMedium?.copyWith(
-                                  color: Colors.grey[600],
-                                  letterSpacing: 1.2,
-                                ),
+                       Row(
+                        children: [
+                          const Expanded(child: Divider()),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Text(
+                              'NEW TO CAMPUS?',
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: Colors.grey[600],
+                                letterSpacing: 1.2,
                               ),
                             ),
-                            const Expanded(child: Divider()),
-                          ],
+                          ),
+                          const Expanded(child: Divider()),
+                        ],
+                       ), 
+                       const SizedBox(height: 16),
+                       Row(
+                        children: [
+                          const Expanded(child: Divider()),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Text(
+                              'SIGN IN WITH',
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: Colors.grey[600],
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                          ),
+                          const Expanded(child: Divider()),
+                        ],
+                       ),
+                       const SizedBox(height: 16),
+                       SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            side: const BorderSide(color: Color(0xFFE5D9D2), width: 1.2),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            backgroundColor: Colors.white,
+                          ), 
+                          onPressed: () async {
+                             try {
+                                final GoogleAuth googleAuth = GoogleAuth();
+                                final User? user = await googleAuth.signInWithGoogle();
+                                
+                                if (user != null && context.mounted) {
+                                  Navigator.pushReplacementNamed(context, '/home');
+                                }
+                              } catch (e) {
+                                print('Google Sign-In error: $e');
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Google Sign-In failed: $e'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                              }
+                          },
+                          icon: Image.asset(
+                            'assets/images/google-icon.png',
+                            width: 24,
+                            height: 24,
+                          ),
+                          label: const Text(
+                            'Continue with Google',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF5B0B0C),
+                            ),
+                          ),
                         ),
+                       ),
                         const SizedBox(height: 16),
                         SizedBox(
                           width: double.infinity,

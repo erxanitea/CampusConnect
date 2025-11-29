@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:stateful_widget/widgets/campus_bottom_nav.dart';
 import 'package:stateful_widget/widgets/floating_messages_button.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:stateful_widget/services/auth/google_auth.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
-
+ 
   static const _badgeLabels = ['Active Owl', 'CS Club', 'Student Council'];
 
   static const _achievementCards = [
@@ -39,6 +42,73 @@ class ProfilePage extends StatelessWidget {
       'accent': Color(0xFF2B50AF),
     },
   ];
+
+  //get current user from firebase auth
+  User? get _currentUser => FirebaseAuth.instance.currentUser;
+
+  //helper method to get user _initials
+  String get _userInitials {
+    if (_currentUser?.displayName != null && _currentUser!.displayName!.isNotEmpty) {
+      final names = _currentUser!.displayName!
+          .trim()
+          .split(' ')
+          .where((name) => name.isNotEmpty)
+          .toList();
+
+      if (names.isEmpty) return 'UN';
+
+      try {
+        if (names.length == 1) {
+          // single name - get first charcater  
+          return _getFirstValidCharacter(names[0]);
+        }
+        else { 
+          final firstInitial = _getFirstValidCharacter(names[0]);
+          final lastInitial = _getFirstValidCharacter(names[names.length - 1]);
+
+          return '$firstInitial$lastInitial';
+        }
+      } catch (e) {
+        //return default inital - means User Name 
+        return 'UN';
+      }
+    }  
+    return 'UN';
+  }
+
+  String _getFirstValidCharacter(String name) {
+    //remove special characters 
+    final normalizedName = _removeDiacritics(name);
+
+    //find the first letter 
+    for (int i = 0; i < normalizedName.length; i++) {
+      final char = normalizedName[i];
+      if (RegExp(r'[A-Za-z]').hasMatch(char)) {
+        return char.toUpperCase();
+      }
+    }
+
+    //if no letters(special characters) are found, return first characters
+    return normalizedName.isNotEmpty ? normalizedName[0].toUpperCase() : '?';
+  }
+
+  String _removeDiacritics(String text) {
+    return text 
+      .replaceAll('á', 'a')
+      .replaceAll('é', 'e')
+      .replaceAll('í', 'i')
+      .replaceAll('ó', 'o')
+      .replaceAll('ú', 'u')
+      .replaceAll('ñ', 'n')
+      .replaceAll('ü', 'u')
+      .replaceAll('Á', 'A')
+      .replaceAll('É', 'E')
+      .replaceAll('Í', 'I')
+      .replaceAll('Ó', 'O')
+      .replaceAll('Ú', 'U')
+      .replaceAll('Ñ', 'N')
+      .replaceAll('Ü', 'U');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -76,7 +146,7 @@ class ProfilePage extends StatelessWidget {
                         const SizedBox(height: 20),
                         _buildOrganizationsCard(theme),
                         const SizedBox(height: 20),
-                        _buildSignOutButton(theme),
+                        _buildSignOutButton(context),
                       ],
                     ),
                   ),
@@ -96,21 +166,21 @@ class ProfilePage extends StatelessWidget {
                         width: 5,
                       ),
                     ),
-                    child: const CircleAvatar(
+                    child: CircleAvatar(
                       radius: 52,
-                      backgroundColor: Color(0xFFFADBD2),
-                      child: CircleAvatar(
-                        radius: 48,
-                        backgroundColor: Color(0xFFFADBD2),
-                        child: Text(
-                          'JD',
-                          style: TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF7C0010),
-                          ),
-                        ),
-                      ),
+                      backgroundColor: const Color(0xFFFADBD2),
+                      child: _currentUser?.photoURL != null
+                          ? ClipOval(
+                              child: CachedNetworkImage(
+                                imageUrl: _currentUser!.photoURL!,
+                                width: 96,
+                                height: 96,
+                                fit: BoxFit.cover,
+                                errorWidget: (context, url, error) => _buildInitialsFallback(),
+                                placeholder: (context, url) => _buildLoadingIndicator(),
+                              ),
+                            )
+                          : _buildInitialsFallback(),
                     ),
                   ),
                 ),
@@ -129,6 +199,31 @@ class ProfilePage extends StatelessWidget {
     } else {
       Navigator.pushReplacementNamed(context, '/home');
     }
+  }
+
+  Widget _buildInitialsFallback() {
+    return CircleAvatar(
+      radius: 48,
+      backgroundColor: const Color(0xFFFADBD2),
+      child: Text(
+        _userInitials,
+        style: const TextStyle(
+          fontSize: 32,
+          fontWeight: FontWeight.w800,
+          color: Color(0xFF7C0010),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingIndicator() {
+    return CircleAvatar(
+      radius: 48,
+      backgroundColor: const Color(0xFFFADBD2),
+      child: const CircularProgressIndicator(
+        valueColor: AlwaysStoppedAnimation(Color(0xFF7C0010)),
+      ),
+    );
   }
 
   Widget _buildHeroSection(ThemeData theme) {
@@ -158,7 +253,7 @@ class ProfilePage extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                'John Doe',
+                _currentUser?.displayName ?? 'User Name',
                 style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w800,
                   color: const Color(0xFF4A1C1C),
@@ -175,7 +270,7 @@ class ProfilePage extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Computer Science • Class of 2025',
+            _currentUser?.email ?? 'user@email.com',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: Colors.grey[700],
             ),
@@ -232,7 +327,7 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  Widget _buildCampusPointsCard(ThemeData theme) {
+  Widget _buildCampusPointsCard(ThemeData theme) { 
     return _SectionCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -275,7 +370,6 @@ class ProfilePage extends StatelessWidget {
           ),
           const SizedBox(height: 22),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: _achievementCards
                 .asMap()
                 .entries
@@ -342,13 +436,15 @@ class ProfilePage extends StatelessWidget {
                     accentColor: org['accent'] as Color,
                   ),
                 ),
-              ),
+              )
+              .toList(),
         ],
       ),
     );
   }
 
-  Widget _buildSignOutButton(ThemeData theme) {
+  Widget _buildSignOutButton(BuildContext context) {
+    final theme = Theme.of(context);
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
@@ -360,9 +456,45 @@ class ProfilePage extends StatelessWidget {
             borderRadius: BorderRadius.circular(24),
           ),
           elevation: 6,
-          shadowColor: const Color(0xFFE84535).withValues(alpha: 0.3),
+          shadowColor: const Color(0xFFE84535).withOpacity(0.3),
         ),
-        onPressed: () {},
+        onPressed: () async {
+             showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (BuildContext context) {
+                return const Center(
+                  child: CircularProgressIndicator(),
+                );
+              },
+             );
+
+              try {
+                await GoogleAuth().signOut();
+
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                }
+
+                if (context.mounted) {
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    '/',
+                    (route) => false
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Sign out failed: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+          },
         icon: const Icon(Icons.logout),
         label: Text(
           'Sign Out',
@@ -396,7 +528,7 @@ class _SectionCard extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withOpacity(0.05),
             blurRadius: 24,
             offset: const Offset(0, 12),
           ),
@@ -512,7 +644,7 @@ class _OrganizationTile extends StatelessWidget {
             height: 48,
             width: 48,
             decoration: BoxDecoration(
-              color: accentColor.withValues(alpha: 0.15),
+              color: accentColor.withOpacity(0.15),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Icon(Icons.category_rounded, color: accentColor),
