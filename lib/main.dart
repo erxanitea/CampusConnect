@@ -5,9 +5,14 @@ import 'package:stateful_widget/RegisterPage.dart';
 import 'package:stateful_widget/home_page.dart';
 import 'package:stateful_widget/profile_page.dart';
 import 'package:stateful_widget/marketplace_page.dart';
+<<<<<<< HEAD
 import 'package:firebase_core/firebase_core.dart';
 import 'package:stateful_widget/services/auth/google_auth.dart';
 import 'firebase_options.dart';
+=======
+import 'package:stateful_widget/student_wall_page.dart';
+import 'package:stateful_widget/messages_page.dart';
+>>>>>>> 2e1ec20ce72c7c1b5dca4cfb89d8af2eaa9f38da
 
 
 void main() async {
@@ -107,6 +112,8 @@ class MyApp extends StatelessWidget {
         '/home': (context) => const HomePage(),
         '/profile': (context) => const ProfilePage(),
         '/marketplace': (context) => const MarketplacePage(),
+        '/wall': (context) => const StudentWallPage(),
+        '/messages': (context) => const MessagesPage(),
       },
     );
   }

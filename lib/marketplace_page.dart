@@ -66,7 +66,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
       backgroundColor: Colors.white,
       floatingActionButton: FloatingMessagesButton(
         badgeCount: 4,
-        onPressed: () {},
+        onPressed: () => Navigator.pushNamed(context, '/messages'),
         heroTag: 'marketplaceMessagesFab',
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
@@ -428,6 +428,14 @@ class _MarketplacePageState extends State<MarketplacePage> {
     if (index == 1) return;
     if (index == 0) {
       Navigator.pop(context);
+      return;
+    }
+    if (index == 2) {
+      setState(() => _navIndex = index);
+      Navigator.pushNamed(context, '/wall').then((_) {
+        if (!mounted) return;
+        setState(() => _navIndex = 1);
+      });
       return;
     }
     if (index == 4) {

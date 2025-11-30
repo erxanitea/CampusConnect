@@ -73,7 +73,7 @@ class _HomePageState extends State<HomePage> {
       backgroundColor: Colors.white,
       floatingActionButton: FloatingMessagesButton(
         badgeCount: 4,
-        onPressed: () {},
+        onPressed: () => Navigator.pushNamed(context, '/messages'),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: CampusBottomNav(
@@ -505,6 +505,14 @@ class _HomePageState extends State<HomePage> {
     if (index == 1) {
       setState(() => _navIndex = index);
       Navigator.pushNamed(context, '/marketplace').then((_) {
+        if (!mounted) return;
+        setState(() => _navIndex = 0);
+      });
+      return;
+    }
+    if (index == 2) {
+      setState(() => _navIndex = index);
+      Navigator.pushNamed(context, '/wall').then((_) {
         if (!mounted) return;
         setState(() => _navIndex = 0);
       });
