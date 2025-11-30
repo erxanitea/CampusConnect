@@ -4,6 +4,7 @@ import 'package:stateful_widget/RegisterPage.dart';
 import 'package:stateful_widget/home_page.dart';
 import 'package:stateful_widget/profile_page.dart';
 import 'package:stateful_widget/marketplace_page.dart';
+import 'package:stateful_widget/student_wall_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -59,6 +60,7 @@ class MyApp extends StatelessWidget {
         '/home': (context) => const HomePage(),
         '/profile': (context) => const ProfilePage(),
         '/marketplace': (context) => const MarketplacePage(),
+        '/wall': (context) => const StudentWallPage(),
       },
     );
   }

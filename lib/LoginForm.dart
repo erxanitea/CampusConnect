@@ -8,46 +8,9 @@ class LoginForm extends StatefulWidget {
 }
 
 class _LoginFormState extends State<LoginForm> {
-  TextEditingController usernameController = TextEditingController();
-  TextEditingController passwordController = TextEditingController();
-  late String errorMessage;
-  late bool isError;
-  late bool isValid;
-
-  @override
-  void initState() {
-    errorMessage = "This is an error message";
-    isError = false;
-    super.initState();
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
-  }
-
-  void checkLogin(username, password) {
-    setState(() {
-      if (username == "") {
-        errorMessage = "Please input your school email";
-        isError = true;
-      } else if (password == "") {
-        errorMessage = "Please input your password";
-        isError = true;
-      } else {
-        isError = false;
-        // Navigate to ProductCard page after successful login
-        Navigator.pushReplacementNamed(context, '/home');
-      }
-    });
-  }
 
   void _handleGoogleSignIn() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Google Sign-In with school email coming soon.'),
-      ),
-    );
+    Navigator.pushReplacementNamed(context, '/home');
   }
 
   @override
@@ -124,7 +87,7 @@ class _LoginFormState extends State<LoginForm> {
                       ],
                     ),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
@@ -134,118 +97,23 @@ class _LoginFormState extends State<LoginForm> {
                             color: const Color(0xFF5B0B0C),
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 6),
                         Text(
-                          'Sign in with your school email or verified Google account',
+                          'Sign in using your verified university-managed account.',
+                          textAlign: TextAlign.center,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: Colors.grey[600],
                           ),
                         ),
-                        const SizedBox(height: 28),
-                        Text(
-                          'School Email',
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            color: const Color(0xFF5B0B0C),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        TextField(
-                          controller: usernameController,
-                          keyboardType: TextInputType.emailAddress,
-                          decoration: const InputDecoration(
-                            hintText: 'you@university.edu',
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          'Password',
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            color: const Color(0xFF5B0B0C),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        TextField(
-                          controller: passwordController,
-                          obscureText: true,
-                          decoration: const InputDecoration(
-                            hintText: '••••••••',
-                          ),
-                        ),
-                        if (isError)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 12),
-                            child: Text(
-                              errorMessage,
-                              style: TextStyle(
-                                color: Colors.red[600],
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                        const SizedBox(height: 20),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF8D0B15),
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            onPressed: () {
-                              checkLogin(
-                                usernameController.text,
-                                passwordController.text,
-                              );
-                            },
-                            child: const Text(
-                              'Sign In',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Center(
-                          child: TextButton(
-                            onPressed: () {},
-                            style: TextButton.styleFrom(
-                              foregroundColor: const Color(0xFF8D0B15),
-                            ),
-                            child: const Text('Forgot password?'),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            const Expanded(child: Divider()),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                              ),
-                              child: Text(
-                                'CHOOSE A SIGN-IN METHOD',
-                                style: theme.textTheme.labelMedium?.copyWith(
-                                  color: Colors.grey[600],
-                                  letterSpacing: 1.2,
-                                ),
-                              ),
-                            ),
-                            const Expanded(child: Divider()),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 32),
                         SizedBox(
                           width: double.infinity,
                           child: OutlinedButton(
                             style: OutlinedButton.styleFrom(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 16,
+                                horizontal: 16,
+                              ),
                               side: const BorderSide(
                                 color: Color(0xFFE5D9D2),
                                 width: 1.2,
@@ -278,9 +146,9 @@ class _LoginFormState extends State<LoginForm> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
                         Text(
-                          'Use your university-managed Google account to sign in—no separate sign-up, campus emails only.',
+                          'Use your campus Google account—no extra passwords, .edu emails only.',
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: Colors.grey[600],

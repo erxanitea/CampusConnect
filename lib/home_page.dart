@@ -510,6 +510,14 @@ class _HomePageState extends State<HomePage> {
       });
       return;
     }
+    if (index == 2) {
+      setState(() => _navIndex = index);
+      Navigator.pushNamed(context, '/wall').then((_) {
+        if (!mounted) return;
+        setState(() => _navIndex = 0);
+      });
+      return;
+    }
     if (index == 4) {
       setState(() => _navIndex = index);
       Navigator.pushNamed(context, '/profile').then((_) {

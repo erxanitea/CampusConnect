@@ -430,6 +430,14 @@ class _MarketplacePageState extends State<MarketplacePage> {
       Navigator.pop(context);
       return;
     }
+    if (index == 2) {
+      setState(() => _navIndex = index);
+      Navigator.pushNamed(context, '/wall').then((_) {
+        if (!mounted) return;
+        setState(() => _navIndex = 1);
+      });
+      return;
+    }
     if (index == 4) {
       setState(() => _navIndex = index);
       Navigator.pushNamed(context, '/profile').then((_) {
