@@ -48,7 +48,7 @@ class ProfilePage extends StatelessWidget {
       backgroundColor: Colors.white,
       floatingActionButton: FloatingMessagesButton(
         badgeCount: 4,
-        onPressed: () {},
+        onPressed: () => Navigator.pushNamed(context, '/messages'),
         heroTag: 'profileMessagesFab',
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,

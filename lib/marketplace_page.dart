@@ -66,7 +66,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
       backgroundColor: Colors.white,
       floatingActionButton: FloatingMessagesButton(
         badgeCount: 4,
-        onPressed: () {},
+        onPressed: () => Navigator.pushNamed(context, '/messages'),
         heroTag: 'marketplaceMessagesFab',
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,

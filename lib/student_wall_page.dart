@@ -57,7 +57,7 @@ class _StudentWallPageState extends State<StudentWallPage> {
       backgroundColor: const Color(0xFFFDF8F2),
       floatingActionButton: FloatingMessagesButton(
         badgeCount: 4,
-        onPressed: () {},
+        onPressed: () => Navigator.pushNamed(context, '/messages'),
         heroTag: 'wallMessagesFab',
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
