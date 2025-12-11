@@ -1,6 +1,15 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:stateful_widget/widgets/campus_bottom_nav.dart';
 import 'package:stateful_widget/widgets/floating_messages_button.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:stateful_widget/services/database/database_service.dart';
+import 'package:stateful_widget/models/post_model.dart';
+import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:flutter/services.dart';
+import 'package:stateful_widget/widgets/post_card.dart';
+import 'package:stateful_widget/widgets/comment_sheet.dart';
 
 class StudentWallPage extends StatefulWidget {
   const StudentWallPage({super.key});
@@ -10,43 +19,66 @@ class StudentWallPage extends StatefulWidget {
 }
 
 class _StudentWallPageState extends State<StudentWallPage> {
+
+  int _navIndex = 1;
+
+  void _handleNavTap(int index) {
+    setState(() {
+    _navIndex = index;
+       });
+
+      switch (index) {
+      case 0:
+        if (ModalRoute.of(context)?.settings.name != '/home') {
+          Navigator.pushReplacementNamed(context, '/home');
+        }
+        break;
+      case 1:
+        if (ModalRoute.of(context)?.settings.name != '/wall') {
+          Navigator.pushReplacementNamed(context, '/wall');
+        }
+        break;
+      case 2:
+        if (ModalRoute.of(context)?.settings.name != '/marketplace') {
+          Navigator.pushReplacementNamed(context, '/marketplace');
+        }
+        break;
+      case 3:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Alerts coming soon!')),
+        );
+        break;
+      case 4:
+        if (ModalRoute.of(context)?.settings.name != '/profile') {
+          Navigator.pushReplacementNamed(context, '/profile');
+        }
+        break;
+    }
+  }
+
+
   final TextEditingController _postController = TextEditingController();
   bool _postAsAnonymous = false;
-  int _navIndex = 2;
+  bool _isPosting = false;
+  final DatabaseService _databaseService = DatabaseService();
 
-  final List<Map<String, dynamic>> _posts = [
-    {
-      'author': 'Anonymous',
-      'anonymous': true,
-      'time': '3h ago',
-      'category': 'Confession',
-      'categoryColor': Color(0xFFE85D5D),
-      'emoji': '🥤',
-      'content':
-          'Anyone else feel like finals week is never-ending? Coffee has become my best friend.',
-      'likes': 156,
-      'comments': 23,
-      'boosts': 6,
-    },
-    {
-      'author': 'Taylor S.',
-      'anonymous': false,
-      'time': '6h ago',
-      'category': 'Opinion',
-      'categoryColor': Color(0xFFF2A03C),
-      'emoji': '📚',
-      'content':
-          'Hot take: the library should be open 24/7 during finals week. Who’s with me?',
-      'likes': 98,
-      'comments': 14,
-      'boosts': 3,
-    },
-  ];
+  Stream<QuerySnapshot>? _postsStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPosts();
+  }
 
   @override
   void dispose() {
     _postController.dispose();
     super.dispose();
+  }
+
+  void _loadPosts() {
+    _postsStream = _databaseService.getPostsStream(limit: 50);
+    setState(() {});
   }
 
   @override
@@ -57,8 +89,7 @@ class _StudentWallPageState extends State<StudentWallPage> {
       backgroundColor: const Color(0xFFFDF8F2),
       floatingActionButton: FloatingMessagesButton(
         badgeCount: 4,
-        onPressed: () => Navigator.pushNamed(context, '/messages'),
-        heroTag: 'wallMessagesFab',
+        onPressed: () {},
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: CampusBottomNav(
@@ -89,12 +120,38 @@ class _StudentWallPageState extends State<StudentWallPage> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    ..._posts.map(
-                      (post) => Padding(
-                        padding: const EdgeInsets.only(bottom: 18),
-                        child: _buildPostCard(post, theme),
-                      ),
-                    ),
+                    if (_postsStream != null)
+                      StreamBuilder<QuerySnapshot>(
+                        stream: _postsStream,
+                        builder: (context, snapshot) {
+                          if (snapshot.hasError) {
+                            return Text('Error: ${snapshot.error}');
+                          }
+
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const Center(child: CircularProgressIndicator());
+                          }
+
+                          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                            return _buildEmptyState();
+                          }
+
+                          final posts = snapshot.data!.docs
+                              .map((doc) => Post.fromFirestore(doc))
+                              .toList();
+
+                          return Column(
+                            children: posts
+                                .map((post) => Padding(
+                                      padding: const EdgeInsets.only(bottom: 18),
+                                      child: _buildPostCard(post, theme),
+                                    ))
+                                .toList(),
+                          );
+                        },
+                      )
+                    else
+                      const CircularProgressIndicator(),
                   ],
                 ),
               ),
@@ -151,7 +208,7 @@ class _StudentWallPageState extends State<StudentWallPage> {
         border: Border.all(color: const Color(0xFFF1E4DE)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: Colors.black.withOpacity(0.03),
             blurRadius: 24,
             offset: const Offset(0, 12),
           ),
@@ -200,11 +257,13 @@ class _StudentWallPageState extends State<StudentWallPage> {
                           if (states.contains(WidgetState.selected)) {
                             return const Color(0xFFF6D8D6);
                           }
-                          return Colors.grey[300]?.withValues(alpha: 0.5);
+                          return Colors.grey[300]?.withOpacity(0.5);
                         }),
-                        onChanged: (value) {
-                          setState(() => _postAsAnonymous = value);
-                        },
+                        onChanged: _isPosting
+                            ? null
+                            : (value) {
+                                setState(() => _postAsAnonymous = value);
+                              },
                       ),
                       const SizedBox(width: 8),
                       Text(
@@ -232,6 +291,7 @@ class _StudentWallPageState extends State<StudentWallPage> {
             controller: _postController,
             minLines: 3,
             maxLines: 5,
+            enabled: !_isPosting,
             decoration: InputDecoration(
               hintText: "What's on your mind? Share a confession, opinion, or thought...",
               fillColor: const Color(0xFFFFFBF8),
@@ -249,21 +309,104 @@ class _StudentWallPageState extends State<StudentWallPage> {
           const SizedBox(height: 16),
           Align(
             alignment: Alignment.centerRight,
-            child: ElevatedButton.icon(
-              onPressed: _handlePost,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF8D0B15),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              icon: const Icon(Icons.send_rounded, size: 18),
-              label: const Text(
-                'Post',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
+            child: _isPosting
+                ? const CircularProgressIndicator()
+                : ElevatedButton.icon(
+                    onPressed: _handlePost,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF8D0B15),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    icon: const Icon(Icons.send_rounded, size: 18),
+                    label: const Text(
+                      'Post',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handlePost() async {
+    final text = _postController.text.trim();
+    if (text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Share a thought before posting')),
+      );
+      return;
+    }
+
+    try {
+      setState(() => _isPosting = true);
+
+      final category = 'Confession';
+      final emoji = _postAsAnonymous ? '🤫' : '💬';
+
+      await _databaseService.createPost(
+        content: text,
+        isAnonymous: _postAsAnonymous,
+        category: category,
+        emoji: emoji,
+      );
+
+      _postController.clear();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_postAsAnonymous
+              ? 'Anonymous confession posted'
+              : 'Public confession posted'),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error posting: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isPosting = false);
+      }
+    }
+  }
+
+  Widget _buildPostCard(Post post, ThemeData theme) {
+   return PostCard(post: post); 
+  }
+
+  Widget _buildEmptyState() {
+    return Container(
+      padding: const EdgeInsets.all(40),
+      child: Column(
+        children: [
+          Icon(
+            Icons.forum_outlined,
+            size: 60,
+            color: Colors.grey[300],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No posts yet',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[500],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Be the first to share your thoughts!',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.grey[400],
             ),
           ),
         ],
@@ -271,191 +414,41 @@ class _StudentWallPageState extends State<StudentWallPage> {
     );
   }
 
-  Widget _buildPostCard(Map<String, dynamic> post, ThemeData theme) {
-    final Color accent = post['categoryColor'] as Color? ?? const Color(0xFFFFD6C2);
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(26),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(26),
-          border: const Border(
-            left: BorderSide(color: Color(0xFFB01F1F), width: 5),
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CircleAvatar(
-                    radius: 24,
-                    backgroundColor: accent.withValues(alpha: 0.2),
-                    child: Text(
-                      _avatarInitial(post),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF8D0B15),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          post['anonymous'] == true ? 'Anonymous' : post['author'] as String,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF4A1C1C),
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          post['time'] as String,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Text(
-                post['content'] as String,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: const Color(0xFF4A1C1C),
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  _reactionStat(Icons.favorite_border, post['likes'] as int),
-                  const SizedBox(width: 18),
-                  _reactionStat(Icons.chat_bubble_outline, post['comments'] as int),
-                  const SizedBox(width: 18),
-                  _reactionStat(Icons.share_outlined, post['boosts'] as int),
-                  const Spacer(),
-                  Text(
-                    post['emoji'] as String,
-                    style: const TextStyle(fontSize: 20),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  Color _getCategoryColor(String category) {
+    switch (category) {
+      case 'Confession':
+        return const Color(0xFFE85D5D);
+      // case 'Opinion': return const Color(0xfff2a03c);
+      default:
+        return const Color(0xFF8D0B15);
+    }
   }
 
-  Widget _reactionStat(IconData icon, int count) {
-    return Row(
-      children: [
-        Icon(icon, color: const Color(0xFFB74D3A), size: 20),
-        const SizedBox(width: 6),
-        Text(
-          '$count',
-          style: const TextStyle(
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF5B0B0C),
-          ),
-        ),
-      ],
-    );
+  String _formatTime(DateTime time) {
+    final now = DateTime.now();
+    final difference = now.difference(time);
+
+    if (difference.inMinutes < 1) return 'Just now';
+    if (difference.inMinutes < 60) return '${difference.inMinutes}m ago';
+    if (difference.inHours < 24) return '${difference.inHours}h ago';
+    if (difference.inDays < 7) return '${difference.inDays}d ago';
+    return '${time.month}/${time.day}/${time.year}';
   }
 
-  void _handleNavTap(int index) {
-    if (index == _navIndex) return;
-    if (index == 0) {
-      Navigator.pop(context);
-      return;
-    }
-    if (index == 1) {
-      setState(() => _navIndex = index);
-      Navigator.pushNamed(context, '/marketplace').then((_) {
-        if (!mounted) return;
-        setState(() => _navIndex = 2);
-      });
-      return;
-    }
-    if (index == 3) {
-      setState(() => _navIndex = index);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Alerts coming soon!')),
-      );
-      Future.delayed(const Duration(milliseconds: 600), () {
-        if (!mounted) return;
-        setState(() => _navIndex = 2);
-      });
-      return;
-    }
-    if (index == 4) {
-      setState(() => _navIndex = index);
-      Navigator.pushNamed(context, '/profile').then((_) {
-        if (!mounted) return;
-        setState(() => _navIndex = 2);
-      });
-      return;
-    }
-    setState(() => _navIndex = index);
+  String _getAvatarInitial(String name) {
+    if (name.isEmpty) return 'UN';
+    return name[0].toUpperCase();
   }
 
-  String _avatarInitial(Map<String, dynamic> post) {
-    if (post['anonymous'] == true) return 'A';
-    final author = (post['author'] as String?)?.trim();
-    if (author == null || author.isEmpty) return 'U';
-    return author.substring(0, 1).toUpperCase();
-  }
-
-  void _handlePost() {
-    final text = _postController.text.trim();
-    if (text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Share a thought before posting.')),
-      );
-      return;
-    }
-
-    final isAnon = _postAsAnonymous;
-    final Map<String, dynamic> newPost = {
-      'author': isAnon ? 'Anonymous' : 'You',
-      'anonymous': isAnon,
-      'time': 'Just now',
-      'category': isAnon ? 'Confession' : 'Thought',
-      'categoryColor': isAnon ? const Color(0xFFE85D5D) : const Color(0xFF8D0B15),
-      'emoji': isAnon ? '🤫' : '💬',
-      'content': text,
-      'likes': 0,
-      'comments': 0,
-      'boosts': 0,
-    };
-
-    setState(() {
-      _posts.insert(0, newPost);
-      _postController.clear();
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(isAnon ? 'Anonymous confession posted!' : 'Shared with your name!'),
-      ),
+  void _showComments(String postId) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => CommentSheet(
+        postId: postId,
+        databaseService: _databaseService,
+      ), 
     );
   }
 }

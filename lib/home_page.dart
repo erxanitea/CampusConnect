@@ -1,18 +1,67 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:stateful_widget/widgets/campus_bottom_nav.dart';
 import 'package:stateful_widget/widgets/floating_messages_button.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:stateful_widget/services/database/database_service.dart';
+import 'package:stateful_widget/models/post_model.dart';
+import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:stateful_widget/widgets/post_card.dart';
+import 'package:stateful_widget/widgets/comment_sheet.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
-
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  final List<String> _filters = const ['All', 'Orgs', 'Trending'];
-  int _selectedFilter = 0;
   int _navIndex = 0;
+
+  void _handleNavTap(int index) {
+    setState(() {
+      _navIndex = index;
+    });
+
+     switch (index) {
+      case 0:
+        if (ModalRoute.of(context)?.settings.name != '/home') {
+          Navigator.pushReplacementNamed(context, '/home');
+        }
+        break;
+      case 1:
+        if (ModalRoute.of(context)?.settings.name != '/wall') {
+          Navigator.pushReplacementNamed(context, '/wall');
+        }
+        break;
+      case 2:
+        if (ModalRoute.of(context)?.settings.name != '/marketplace') {
+          Navigator.pushReplacementNamed(context, '/marketplace');
+        }
+        break;
+      case 3:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Alerts coming soon!')),
+        );
+        break;
+      case 4:
+        if (ModalRoute.of(context)?.settings.name != '/profile') {
+          Navigator.pushReplacementNamed(context, '/profile');
+        }
+        break;
+    }
+  }
+
+
+  final List<String> _filters = const ['All', 'Orgs', 'Confessions'];
+  int _selectedFilter = 0;
+  final DatabaseService _databaseService = DatabaseService();
+
+  List<Post> _confessions = [];
+  List<Post> _allPosts = [];
+  bool _isLoading = true;
+  StreamSubscription<QuerySnapshot>? _postsSubscription;
 
   static const _recentMessages = [
     {
@@ -38,48 +87,80 @@ class _HomePageState extends State<HomePage> {
     },
   ];
 
-  static const _announcements = [
-    {
-      'title': 'Computer Science Club',
-      'time': '2h ago',
-      'body':
-          '🎉 Hackathon 2025 Registration Open! Join us for 48 hours of coding, prizes, and networking. Register by Friday!',
-      'pinned': true,
-      'reactions': {'likes': 45, 'comments': 8, 'shares': 3},
-    },
-    {
-      'title': 'Student Council',
-      'time': '5h ago',
-      'body':
-          '📢 Campus WiFi maintenance scheduled for this weekend. Please save your work!',
-      'pinned': false,
-      'reactions': {'likes': 45, 'comments': 8, 'shares': 6},
-    },
-    {
-      'title': 'Alex Chen',
-      'time': '1d ago',
-      'body':
-          'Just finished my final project! Feeling relieved 😅 #StudentLife',
-      'pinned': false,
-      'reactions': {'likes': 23, 'comments': 5, 'shares': 2},
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadPosts();
+  }
+
+  @override
+  void dispose() {
+    _postsSubscription?.cancel();
+    super.dispose();
+  }
+
+  void _loadPosts() {
+    _isLoading = true;
+    _postsSubscription = _databaseService.getPostsStream().listen((snapshot) {
+      if (snapshot.docs.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _allPosts = [];
+            _confessions = [];
+          });
+        }
+        return;
+      }
+      final posts = snapshot.docs.map((doc) => Post.fromFirestore(doc)).toList();
+      final confessions = posts.where((post) => post.category == 'Confession').toList();
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _allPosts = posts;
+          _confessions = confessions;
+        });
+      }
+    }, onError: (error) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+      print('Error loading posts: $error');
+    });
+  }
+
+  List<Post> get _displayedPosts {
+    switch (_selectedFilter) {
+      case 0:
+        return _allPosts;
+      case 1:
+        return _allPosts.where((post) => post.category == 'Announcement').toList();
+      case 2:
+        return _confessions;
+      default:
+        return _allPosts;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
+    
     return Scaffold(
       backgroundColor: Colors.white,
       floatingActionButton: FloatingMessagesButton(
         badgeCount: 4,
-        onPressed: () => Navigator.pushNamed(context, '/messages'),
+        onPressed: () {},
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: CampusBottomNav(
         currentIndex: _navIndex,
         onItemTapped: _handleNavTap,
       ),
+
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.only(bottom: 30),
@@ -94,12 +175,20 @@ class _HomePageState extends State<HomePage> {
                     const SizedBox(height: 20),
                     _buildRecentMessagesCard(theme),
                     const SizedBox(height: 18),
-                    ..._announcements.map(
-                      (post) => Padding(
-                        padding: const EdgeInsets.only(bottom: 18),
-                        child: _buildAnnouncementCard(post, theme),
+                    if (_isLoading)
+                      const Padding(
+                        padding: EdgeInsets.all(40.0),
+                        child: CircularProgressIndicator(),
+                      )
+                    else if (_displayedPosts.isEmpty)
+                      _buildEmptyState(theme)
+                    else
+                      ..._displayedPosts.map(
+                        (post) => Padding(
+                          padding: const EdgeInsets.only(bottom: 18),
+                          child: PostCard(post: post),
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -143,7 +232,7 @@ class _HomePageState extends State<HomePage> {
               ),
               IconButton.filled(
                 style: IconButton.styleFrom(
-                  backgroundColor: Colors.white.withValues(alpha: 0.18),
+                  backgroundColor: Colors.white.withOpacity(0.18),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
@@ -161,7 +250,7 @@ class _HomePageState extends State<HomePage> {
           Text(
             'Your campus community hub',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.8),
+              color: Colors.white.withOpacity(0.8),
               fontSize: 16,
             ),
           ),
@@ -181,7 +270,7 @@ class _HomePageState extends State<HomePage> {
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
+              color: Colors.black.withOpacity(0.08),
               blurRadius: 16,
               offset: const Offset(0, 8),
             ),
@@ -233,12 +322,12 @@ class _HomePageState extends State<HomePage> {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(26),
-        border: Border(
-          left: BorderSide(color: const Color(0xFFB01F1F), width: 5),
+        border: const Border(
+          left: BorderSide(color: Color(0xFFB01F1F), width: 5),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withOpacity(0.05),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -266,11 +355,14 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ],
               ),
-              Text(
-                'View All',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: const Color(0xFFBD2C1A),
-                  fontWeight: FontWeight.w600,
+              GestureDetector(
+                onTap: () => Navigator.pushNamed(context, '/messages'),
+                child: Text(
+                  'View All',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: const Color(0xFFBD2C1A),
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
@@ -325,132 +417,23 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildAnnouncementCard(Map<String, dynamic> post, ThemeData theme) {
-    final bool isPinned = post['pinned'] as bool;
 
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(
-          color: isPinned ? const Color(0xFFCC3C2E) : const Color(0xFFEDE4E1),
-          width: isPinned ? 1.5 : 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _reactionItem(IconData icon, int count, {VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Row(
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CircleAvatar(
-                radius: 26,
-                backgroundColor: const Color(0xFFE0F2FF),
-                child: Text(
-                  post['title']!.toString()[0],
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF0D47A1),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            post['title'] as String,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        if (isPinned)
-                          _buildChip('Pinned', Icons.push_pin, true),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        _buildChip('Official Org', Icons.verified, false),
-                        const SizedBox(width: 8),
-                        Text(
-                          post['time'] as String,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
+          Icon(icon, color: const Color(0xFFB54B3A), size: 20),
+          const SizedBox(width: 6),
           Text(
-            post['body'] as String,
-            style: theme.textTheme.bodyLarge?.copyWith(
-              color: const Color(0xFF4E2A2A),
-              height: 1.4,
+            '$count',
+            style: const TextStyle(
+              color: Color(0xFF5B0B0C),
+              fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 16),
-          const Divider(color: Color(0xFFEBD9D4), thickness: 0.8, height: 0),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _reactionItem(
-                Icons.thumb_up_alt_outlined,
-                post['reactions']['likes'] as int,
-              ),
-              _reactionItem(
-                Icons.chat_bubble_outline,
-                post['reactions']['comments'] as int,
-              ),
-              _reactionItem(
-                Icons.share_outlined,
-                post['reactions']['shares'] as int,
-              ),
-              const Icon(Icons.thumb_up, color: Color(0xFF7C000F)),
-              const Icon(
-                Icons.emoji_emotions_outlined,
-                color: Color(0xFF7C000F),
-              ),
-            ],
-          ),
         ],
       ),
-    );
-  }
-
-  Widget _reactionItem(IconData icon, int count) {
-    return Row(
-      children: [
-        Icon(icon, color: const Color(0xFFB54B3A), size: 20),
-        const SizedBox(width: 6),
-        Text(
-          '$count',
-          style: const TextStyle(
-            color: Color(0xFF5B0B0C),
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
     );
   }
 
@@ -500,33 +483,181 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _handleNavTap(int index) {
-    if (index == 0) return;
-    if (index == 1) {
-      setState(() => _navIndex = index);
-      Navigator.pushNamed(context, '/marketplace').then((_) {
-        if (!mounted) return;
-        setState(() => _navIndex = 0);
-      });
-      return;
-    }
-    if (index == 2) {
-      setState(() => _navIndex = index);
-      Navigator.pushNamed(context, '/wall').then((_) {
-        if (!mounted) return;
-        setState(() => _navIndex = 0);
-      });
-      return;
-    }
-    if (index == 4) {
-      setState(() => _navIndex = index);
-      Navigator.pushNamed(context, '/profile').then((_) {
-        if (!mounted) return;
-        setState(() => _navIndex = 0);
-      });
-      return;
-    }
-    setState(() => _navIndex = index);
+  Widget _buildEmptyState(ThemeData theme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 40),
+      child: Column(
+        children: [
+          Icon(
+            _selectedFilter == 0
+                ? Icons.forum_outlined
+                : _selectedFilter == 1
+                    ? Icons.groups_outlined
+                    : Icons.psychology_outlined,
+            size: 60,
+            color: Colors.grey[300],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            _getEmptyStateTitle(),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[500],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _getEmptyStateSubtitle(),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.grey[400],
+            ),
+          ),
+          const SizedBox(height: 20),
+          if (_selectedFilter == 2)
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pushNamed(context, '/wall');
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF8D0B15),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Share Your First Confession'),
+            ),
+        ],
+      ),
+    );
   }
 
+  String _getEmptyStateTitle() {
+    switch (_selectedFilter) {
+      case 0:
+        return 'No posts yet';
+      case 1:
+        return 'No organization posts';
+      case 2:
+        return 'No confessions yet';
+      default:
+        return 'No content';
+    }
+  }
+
+  String _getEmptyStateSubtitle() {
+    switch (_selectedFilter) {
+      case 0:
+        return 'Be the first to share something!';
+      case 1:
+        return 'Organization announcements will appear here';
+      case 2:
+        return 'Share your anonymous thoughts on the Student Wall';
+      default:
+        return 'Check back soon';
+    }
+  }
+
+  Color _getPostAvatarColor(Post post) {
+    if (post.category == 'Confession') return const Color(0xFFE85D5D).withOpacity(0.2);
+    if (post.category == 'Announcement') return const Color(0xFF0EA89B).withOpacity(0.2);
+    return const Color(0xFFE0F2FF);
+  }
+
+  Color _getPostTextColor(Post post) {
+    if (post.category == 'Confession') return const Color(0xFFE85D5D);
+    if (post.category == 'Announcement') return const Color(0xFF0EA89B);
+    return const Color(0xFF0D47A1);
+  }
+
+  IconData _getCategoryIcon(String category) {
+    switch (category) {
+      case 'Confession':
+        return Icons.psychology_outlined;
+      case 'Announcement':
+        return Icons.verified;
+      case 'Opinion':
+        return Icons.lightbulb_outline;
+      default:
+        return Icons.chat_bubble_outline;
+    }
+  }
+
+  String _getAvatarInitial(String name) {
+    if (name.isEmpty) return 'U';
+    return name[0].toUpperCase();
+  }
+
+  String _formatTime(DateTime time) {
+    final now = DateTime.now();
+    final difference = now.difference(time);
+
+    if (difference.inMinutes < 1) return 'Just now';
+    if (difference.inMinutes < 60) return '${difference.inMinutes}m ago';
+    if (difference.inHours < 24) return '${difference.inHours}h ago';
+    if (difference.inDays < 7) return '${difference.inDays}d ago';
+    return '${time.month}/${time.day}/${time.year}';
+  }
+
+  Future<void> _handleLike(Post post) async {
+    try {
+      await _databaseService.toggleLike(post.id, post.authorId);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  void _handleComment(Post post) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Comment on post'),
+        content: Text('Comment functionality coming soon!'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showComments(String postId) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => CommentSheet(
+        postId: postId,
+        databaseService: _databaseService,
+      ),
+    );
+  }
+
+  void _handleShare(Post post) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Sharing: "${post.content.substring(0, 30)}..."'),
+      ),
+    );
+  }
+
+  void _showReactions(Post post) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Reactions for post'),
+          ],
+        ),
+      ),
+    );
+  }
 }

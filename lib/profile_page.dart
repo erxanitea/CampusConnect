@@ -1,30 +1,90 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:stateful_widget/widgets/campus_bottom_nav.dart';
 import 'package:stateful_widget/widgets/floating_messages_button.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:stateful_widget/services/auth/google_auth.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:stateful_widget/services/database/database_service.dart';
+import 'package:stateful_widget/models/user_model.dart';
+import 'package:stateful_widget/models/post_model.dart';
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
- 
-  static const _badgeLabels = ['Active Owl', 'CS Club', 'Student Council'];
+
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  int _navIndex = 3;
+
+  void _handleNavTap(int index, BuildContext context) {
+    setState(() {
+      _navIndex = index;
+    });
+
+     switch (index) {
+      case 0:
+        if (ModalRoute.of(context)?.settings.name != '/home') {
+          Navigator.pushReplacementNamed(context, '/home');
+        }
+        break;
+      case 1:
+        if (ModalRoute.of(context)?.settings.name != '/wall') {
+          Navigator.pushReplacementNamed(context, '/wall');
+        }
+        break;
+      case 2:
+        if (ModalRoute.of(context)?.settings.name != '/marketplace') {
+          Navigator.pushReplacementNamed(context, '/marketplace');
+        }
+        break;
+      case 3:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Alerts coming soon!')),
+        );
+        break;
+      case 4:
+        if (ModalRoute.of(context)?.settings.name != '/profile') {
+          Navigator.pushReplacementNamed(context, '/profile');
+        }
+        break;
+    }
+  }
+
+
+  final List<String> _filters = const ['All', 'Orgs', 'Confessions'];
+  int _selectedFilter = 0;
+  final DatabaseService _databaseService = DatabaseService();
+
+  List<Post> _confessions = [];
+  List<Post> _allPosts = [];
+  bool _isLoading = true;
+  StreamSubscription<QuerySnapshot>? _postsSubscription;
+
+  AppUser? _currentAppUser;
+  StreamSubscription<DocumentSnapshot>? _userSubscription;
 
   static const _achievementCards = [
     {
       'label': 'Active Owl',
       'emoji': '🦉',
       'color': Color(0xFFF5F1ED),
+      'points': 100,
     },
     {
       'label': 'Market Pro',
       'emoji': '🛍️',
       'color': Color(0xFFF5F1ED),
+      'points': 50,
     },
     {
       'label': 'Chatter',
       'emoji': '💬',
       'color': Color(0xFFF5F1ED),
+      'points': 25,
     },
   ];
 
@@ -43,10 +103,68 @@ class ProfilePage extends StatelessWidget {
     },
   ];
 
-  //get current user from firebase auth
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  @override
+  void dispose() {
+    _userSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadUserData() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+      return;
+    }
+
+    try {
+      final userDoc = await _databaseService.getUserProfile(user.uid);
+      if (userDoc.exists) {
+        if (mounted) {
+          setState(() {
+            _currentAppUser = AppUser.fromFirestore(userDoc);
+            _isLoading = false;
+          });
+        }
+      } else {
+        await _databaseService.createUserProfile(user);
+        final newUserDoc = await _databaseService.getUserProfile(user.uid);
+        if (mounted) {
+          setState(() {
+            _currentAppUser = AppUser.fromFirestore(newUserDoc);
+            _isLoading = false;
+          });
+        }
+      }
+
+      _userSubscription = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .snapshots()
+          .listen((snapshot) {
+        if (snapshot.exists && mounted) {
+          setState(() {
+            _currentAppUser = AppUser.fromFirestore(snapshot);
+          });
+        }
+      });
+    } catch (e) {
+      print('Error loading user data: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
   User? get _currentUser => FirebaseAuth.instance.currentUser;
 
-  //helper method to get user _initials
   String get _userInitials {
     if (_currentUser?.displayName != null && _currentUser!.displayName!.isNotEmpty) {
       final names = _currentUser!.displayName!
@@ -59,55 +177,46 @@ class ProfilePage extends StatelessWidget {
 
       try {
         if (names.length == 1) {
-          // single name - get first charcater  
           return _getFirstValidCharacter(names[0]);
-        }
-        else { 
+        } else {
           final firstInitial = _getFirstValidCharacter(names[0]);
           final lastInitial = _getFirstValidCharacter(names[names.length - 1]);
-
           return '$firstInitial$lastInitial';
         }
       } catch (e) {
-        //return default inital - means User Name 
         return 'UN';
       }
-    }  
+    }
     return 'UN';
   }
 
   String _getFirstValidCharacter(String name) {
-    //remove special characters 
     final normalizedName = _removeDiacritics(name);
-
-    //find the first letter 
     for (int i = 0; i < normalizedName.length; i++) {
       final char = normalizedName[i];
       if (RegExp(r'[A-Za-z]').hasMatch(char)) {
         return char.toUpperCase();
       }
     }
-
-    //if no letters(special characters) are found, return first characters
     return normalizedName.isNotEmpty ? normalizedName[0].toUpperCase() : '?';
   }
 
   String _removeDiacritics(String text) {
-    return text 
-      .replaceAll('á', 'a')
-      .replaceAll('é', 'e')
-      .replaceAll('í', 'i')
-      .replaceAll('ó', 'o')
-      .replaceAll('ú', 'u')
-      .replaceAll('ñ', 'n')
-      .replaceAll('ü', 'u')
-      .replaceAll('Á', 'A')
-      .replaceAll('É', 'E')
-      .replaceAll('Í', 'I')
-      .replaceAll('Ó', 'O')
-      .replaceAll('Ú', 'U')
-      .replaceAll('Ñ', 'N')
-      .replaceAll('Ü', 'U');
+    return text
+        .replaceAll('á', 'a')
+        .replaceAll('é', 'e')
+        .replaceAll('í', 'i')
+        .replaceAll('ó', 'o')
+        .replaceAll('ú', 'u')
+        .replaceAll('ñ', 'n')
+        .replaceAll('ü', 'u')
+        .replaceAll('Á', 'A')
+        .replaceAll('É', 'E')
+        .replaceAll('Í', 'I')
+        .replaceAll('Ó', 'O')
+        .replaceAll('Ú', 'U')
+        .replaceAll('Ñ', 'N')
+        .replaceAll('Ü', 'U');
   }
 
   @override
@@ -118,13 +227,12 @@ class ProfilePage extends StatelessWidget {
       backgroundColor: Colors.white,
       floatingActionButton: FloatingMessagesButton(
         badgeCount: 4,
-        onPressed: () => Navigator.pushNamed(context, '/messages'),
-        heroTag: 'profileMessagesFab',
+        onPressed: () {},
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: CampusBottomNav(
-        currentIndex: 4,
-        onItemTapped: (index) => _handleNavTap(context, index),
+        currentIndex: _navIndex,
+        onItemTapped: (index) => _handleNavTap(index, context),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -136,20 +244,23 @@ class ProfilePage extends StatelessWidget {
                 children: [
                   _buildHeroSection(theme),
                   const SizedBox(height: 35),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Column(
-                      children: [
-                        _buildUserInfoCard(theme),
-                        const SizedBox(height: 20),
-                        _buildCampusPointsCard(theme),
-                        const SizedBox(height: 20),
-                        _buildOrganizationsCard(theme),
-                        const SizedBox(height: 20),
-                        _buildSignOutButton(context),
-                      ],
+                  if (_isLoading)
+                    _buildLoadingState()
+                  else
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Column(
+                        children: [
+                          _buildUserInfoCard(theme),
+                          const SizedBox(height: 20),
+                          _buildCampusPointsCard(theme),
+                          const SizedBox(height: 20),
+                          _buildOrganizationsCard(theme),
+                          const SizedBox(height: 20),
+                          _buildSignOutButton(context),
+                        ],
+                      ),
                     ),
-                  ),
                 ],
               ),
               Positioned(
@@ -192,13 +303,23 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  static void _handleNavTap(BuildContext context, int index) {
-    if (index == 4) return;
-    if (Navigator.canPop(context)) {
-      Navigator.pop(context);
-    } else {
-      Navigator.pushReplacementNamed(context, '/home');
-    }
+  Widget _buildLoadingState() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 100),
+      child: Column(
+        children: [
+          const CircularProgressIndicator(),
+          const SizedBox(height: 20),
+          Text(
+            'Loading profile...',
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildInitialsFallback() {
@@ -245,6 +366,8 @@ class ProfilePage extends StatelessWidget {
   }
 
   Widget _buildUserInfoCard(ThemeData theme) {
+    final badges = _getUserBadges();
+
     return _SectionCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -253,7 +376,7 @@ class ProfilePage extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                _currentUser?.displayName ?? 'User Name',
+                _currentAppUser?.displayName ?? _currentUser?.displayName ?? 'User Name',
                 style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.w800,
                   color: const Color(0xFF4A1C1C),
@@ -261,7 +384,11 @@ class ProfilePage extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               IconButton(
-                onPressed: () {},
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Settings coming soon!')),
+                  );
+                },
                 icon: const Icon(Icons.settings_outlined, size: 22, color: Color(0xFFB74D3A)),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
@@ -270,35 +397,53 @@ class ProfilePage extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            _currentUser?.email ?? 'user@email.com',
+            _currentAppUser?.email ?? _currentUser?.email ?? 'user@email.com',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: Colors.grey[700],
             ),
           ),
           const SizedBox(height: 16),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            alignment: WrapAlignment.center,
-            children: _badgeLabels
-                .map(
-                  (label) => _buildChip(
-                    label,
-                    background: const Color(0xFFF6E8E2),
-                    foreground: const Color(0xFF8D0B15),
-                  ),
-                )
-                .toList(),
-          ),
+          if (badges.isNotEmpty)
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              alignment: WrapAlignment.center,
+              children: badges
+                  .map(
+                    (label) => _buildChip(
+                      label,
+                      background: const Color(0xFFF6E8E2),
+                      foreground: const Color(0xFF8D0B15),
+                    ),
+                  )
+                  .toList(),
+            )
+          else
+            Text(
+              'No badges yet',
+              style: TextStyle(
+                color: Colors.grey[500],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
           const SizedBox(height: 24),
           const Divider(color: Color(0xFFF0E3DF), height: 1),
           const SizedBox(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              _StatItem(label: 'Posts', value: '342'),
-              _StatItem(label: 'Likes', value: '1.2k'),
-              _StatItem(label: 'Items Sold', value: '89'),
+            children: [
+              _StatItem(
+                label: 'Posts',
+                value: '${_currentAppUser?.totalPosts ?? 0}',
+              ),
+              _StatItem(
+                label: 'Likes Received',
+                value: '${_currentAppUser?.totalLikes ?? 0}',
+              ),
+              _StatItem(
+                label: 'Campus Points',
+                value: '${_currentAppUser?.campusPoints ?? 0}',
+              ),
             ],
           ),
         ],
@@ -306,11 +451,19 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  Widget _buildChip(
-    String label, {
-    required Color background,
-    required Color foreground,
-  }) {
+  List<String> _getUserBadges() {
+    final badges = <String>[];
+    if (_currentAppUser == null) return badges;
+
+    if (_currentAppUser!.campusPoints >= 100) badges.add('Active Owl');
+    if (_currentAppUser!.totalPosts >= 10) badges.add('Market Pro');
+    if (_currentAppUser!.totalLikes >= 50) badges.add('Popular');
+    if (_currentAppUser!.campusPoints > 0) badges.add('Member');
+
+    return badges;
+  }
+
+  Widget _buildChip(String label, {required Color background, required Color foreground}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
@@ -327,7 +480,11 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
-  Widget _buildCampusPointsCard(ThemeData theme) { 
+  Widget _buildCampusPointsCard(ThemeData theme) {
+    final userPoints = _currentAppUser?.campusPoints ?? 0;
+    final progress = userPoints / 3000;
+    final nextLevelPoints = 3000 - userPoints;
+
     return _SectionCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -347,17 +504,17 @@ class ProfilePage extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           Text(
-            'Level 7',
+            _getUserLevel(userPoints),
             style: theme.textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.w700,
               color: const Color(0xFF4A1C1C),
             ),
           ),
           const SizedBox(height: 8),
-          _buildProgressBar(progress: 2847 / 3000),
+          _buildProgressBar(progress: progress.clamp(0.0, 1.0)),
           const SizedBox(height: 6),
           Text(
-            '2,847 / 3,000 points',
+            '$userPoints / 3,000 points',
             style: theme.textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w600,
               color: const Color(0xFFB74D3A),
@@ -365,7 +522,9 @@ class ProfilePage extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '153 points to next level',
+            nextLevelPoints > 0
+                ? '$nextLevelPoints points to next level'
+                : 'Max level reached!',
             style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
           ),
           const SizedBox(height: 22),
@@ -382,6 +541,7 @@ class ProfilePage extends StatelessWidget {
                           label: entry.value['label'] as String,
                           emoji: entry.value['emoji'] as String,
                           color: entry.value['color'] as Color,
+                          unlocked: _hasUnlockedAchievement(entry.value['points'] as int),
                         ),
                       ),
                     ))
@@ -392,13 +552,28 @@ class ProfilePage extends StatelessWidget {
     );
   }
 
+  String _getUserLevel(int points) {
+    if (points < 100) return 'Level 1 - Newcomer';
+    if (points < 300) return 'Level 2 - Explorer';
+    if (points < 600) return 'Level 3 - Contributor';
+    if (points < 1000) return 'Level 4 - Influencer';
+    if (points < 1500) return 'Level 5 - Leader';
+    if (points < 2100) return 'Level 6 - Champion';
+    if (points < 2800) return 'Level 7 - Legend';
+    return 'Level 8 - Campus Icon';
+  }
+
+  bool _hasUnlockedAchievement(int requiredPoints) {
+    return (_currentAppUser?.campusPoints ?? 0) >= requiredPoints;
+  }
+
   Widget _buildProgressBar({required double progress}) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: SizedBox(
         height: 12,
         child: LinearProgressIndicator(
-          value: progress.clamp(0.0, 1.0),
+          value: progress,
           backgroundColor: const Color(0xFFF5DAD3),
           valueColor: const AlwaysStoppedAnimation(Color(0xFFBD2B21)),
         ),
@@ -425,19 +600,31 @@ class ProfilePage extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 18),
-          ..._organizations
-              .map(
-                (org) => Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: _OrganizationTile(
-                    name: org['name'] as String,
-                    members: org['members'] as String,
-                    role: org['role'] as String,
-                    accentColor: org['accent'] as Color,
-                  ),
+          if (_organizations.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Text(
+                'Not a member of any organizations yet',
+                style: TextStyle(
+                  color: Colors.grey[500],
+                  fontStyle: FontStyle.italic,
                 ),
-              )
-              .toList(),
+              ),
+            )
+          else
+            ..._organizations
+                .map(
+                  (org) => Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _OrganizationTile(
+                      name: org['name'] as String,
+                      members: org['members'] as String,
+                      role: org['role'] as String,
+                      accentColor: org['accent'] as Color,
+                    ),
+                  ),
+                )
+                .toList(),
         ],
       ),
     );
@@ -459,42 +646,42 @@ class ProfilePage extends StatelessWidget {
           shadowColor: const Color(0xFFE84535).withOpacity(0.3),
         ),
         onPressed: () async {
-             showDialog(
-              context: context,
-              barrierDismissible: false,
-              builder: (BuildContext context) {
-                return const Center(
-                  child: CircularProgressIndicator(),
-                );
-              },
-             );
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (BuildContext context) {
+              return const Center(
+                child: CircularProgressIndicator(),
+              );
+            },
+          );
 
-              try {
-                await GoogleAuth().signOut();
+          try {
+            await GoogleAuth().signOut();
 
-                if (context.mounted) {
-                  Navigator.of(context).pop();
-                }
+            if (context.mounted) {
+              Navigator.of(context).pop();
+            }
 
-                if (context.mounted) {
-                  Navigator.pushNamedAndRemoveUntil(
-                    context,
-                    '/',
-                    (route) => false
-                  );
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Sign out failed: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              }
-          },
+            if (context.mounted) {
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                '/',
+                (route) => false,
+              );
+            }
+          } catch (e) {
+            if (context.mounted) {
+              Navigator.of(context).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Sign out failed: $e'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          }
+        },
         icon: const Icon(Icons.logout),
         label: Text(
           'Sign Out',
@@ -506,7 +693,6 @@ class ProfilePage extends StatelessWidget {
       ),
     );
   }
-
 }
 
 class _SectionCard extends StatelessWidget {
@@ -577,19 +763,24 @@ class _AchievementPill extends StatelessWidget {
     required this.label,
     required this.emoji,
     required this.color,
+    required this.unlocked,
   });
 
   final String label;
   final String emoji;
   final Color color;
+  final bool unlocked;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
       decoration: BoxDecoration(
-        color: color,
+        color: unlocked ? color : color.withOpacity(0.3),
         borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: unlocked ? const Color(0xFFE8DDD8) : Colors.grey[300]!,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -602,12 +793,22 @@ class _AchievementPill extends StatelessWidget {
           Text(
             label,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontWeight: FontWeight.w700,
               fontSize: 14,
-              color: Color(0xFF4A1C1C),
+              color: unlocked ? const Color(0xFF4A1C1C) : Colors.grey[400],
             ),
           ),
+          const SizedBox(height: 4),
+          if (!unlocked)
+            Text(
+              'Locked',
+              style: TextStyle(
+                fontSize: 10,
+                color: Colors.grey[400],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
         ],
       ),
     );
@@ -716,7 +917,7 @@ class _OrganizationTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: isAdmin ? const Color(0xFFF0DDDC) : const Color(0xFFF0DDDC),
+        color: const Color(0xFFF0DDDC),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(

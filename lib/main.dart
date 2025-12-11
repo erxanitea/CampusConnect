@@ -5,21 +5,19 @@ import 'package:stateful_widget/RegisterPage.dart';
 import 'package:stateful_widget/home_page.dart';
 import 'package:stateful_widget/profile_page.dart';
 import 'package:stateful_widget/marketplace_page.dart';
-<<<<<<< HEAD
 import 'package:firebase_core/firebase_core.dart';
 import 'package:stateful_widget/services/auth/google_auth.dart';
 import 'firebase_options.dart';
-=======
 import 'package:stateful_widget/student_wall_page.dart';
 import 'package:stateful_widget/messages_page.dart';
->>>>>>> 2e1ec20ce72c7c1b5dca4cfb89d8af2eaa9f38da
-
+import 'package:stateful_widget/services/database/database_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
-  options: DefaultFirebaseOptions.currentPlatform,
-);
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(const MyApp());
 }
 
@@ -48,18 +46,56 @@ class AuthWrapper extends StatelessWidget {
               });
               return const LoginForm();
             }
-            return const HomePage();
+
+            // Use FutureBuilder to handle async user profile creation
+            return FutureBuilder<void>(
+              future: _ensureUserProfile(user),
+              builder: (context, profileSnapshot) {
+                if (profileSnapshot.connectionState == ConnectionState.waiting) {
+                  return const Scaffold(
+                    body: Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                  );
+                }
+                
+                if (profileSnapshot.hasError) {
+                  print('Error creating user profile: ${profileSnapshot.error}');
+                  // Still return HomePage even if profile creation fails
+                  return const HomePage();
+                }
+                
+                return const HomePage();
+              },
+            );
           }
           return const LoginForm();
         }
         return const Scaffold(
           body: Center(
             child: CircularProgressIndicator(),
-          ), 
+          ),
         );
-      }
+      },
     );
-  } 
+  }
+  
+  Future<void> _ensureUserProfile(User user) async {
+    try {
+      final DatabaseService databaseService = DatabaseService();
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (!userDoc.exists) {
+        await databaseService.createUserProfile(user);
+      }
+    } catch (e) {
+      print('Error creating user profile: $e');
+      rethrow;
+    }
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -72,14 +108,14 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.light(
-          primary: Color.fromARGB(255, 215, 120, 11), // Orange from product page
-          secondary: Color(0xFFFF6B35), // Orange
+          primary: Color.fromARGB(255, 215, 120, 11),
+          secondary: Color(0xFFFF6B35),
           surface: Colors.white,
         ),
         useMaterial3: true,
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: Color.fromARGB(255, 215, 120, 11), // Orange from product page
+            backgroundColor: Color.fromARGB(255, 215, 120, 11),
             foregroundColor: Colors.white,
             padding: EdgeInsets.symmetric(vertical: 15, horizontal: 30),
             shape: RoundedRectangleBorder(
