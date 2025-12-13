@@ -41,9 +41,9 @@ class _HomePageState extends State<HomePage> {
         }
         break;
       case 3:
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Alerts coming soon!')),
-        );
+        if (ModalRoute.of(context)?.settings.name != '/alerts') {
+          Navigator.pushReplacementNamed(context, '/alerts');
+        }
         break;
       case 4:
         if (ModalRoute.of(context)?.settings.name != '/profile') {

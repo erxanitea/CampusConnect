@@ -147,14 +147,7 @@ class MessagesPage extends StatelessWidget {
   }
 
   void _handleNavTap(BuildContext context, int index) {
-    if (index == 3) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Alerts coming soon!')),
-      );
-      return;
-    }
-
-    String route;
+    String? route;
     switch (index) {
       case 0:
         route = '/home';
@@ -165,14 +158,17 @@ class MessagesPage extends StatelessWidget {
       case 2:
         route = '/wall';
         break;
+      case 3:
+        route = '/alerts';
+        break;
       case 4:
         route = '/profile';
         break;
-      default:
-        return;
     }
 
-    Navigator.pushNamedAndRemoveUntil(context, route, (route) => false);
+    if (route != null && ModalRoute.of(context)?.settings.name != route) {
+      Navigator.pushNamedAndRemoveUntil(context, route, (route) => false);
+    }
   }
 }
 

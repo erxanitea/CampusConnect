@@ -27,13 +27,12 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
       case 2:
         Navigator.pushNamedAndRemoveUntil(context, '/wall', (route) => false);
         break;
+      case 3:
+        Navigator.pushNamedAndRemoveUntil(context, '/alerts', (route) => false);
+        break;
       case 4:
         Navigator.pushNamedAndRemoveUntil(context, '/profile', (route) => false);
         break;
-      default:
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Alerts coming soon!')),
-        );
     }
   }
 

@@ -1,0 +1,77 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users can read any user profile
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update, delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Posts rules
+    match /posts/{postId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && 
+                    (request.auth.uid == resource.data.authorId || 
+                     request.resource.data.likesCount <= resource.data.likesCount + 1);
+      allow delete: if request.auth != null && request.auth.uid == resource.data.authorId;
+    }
+
+    // Likes rules
+    match /likes/{likeId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow delete: if request.auth != null && request.auth.uid == request.resource.data.userId;
+    }
+
+    // Comments rules
+    match /comments/{commentId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null && 
+                           request.auth.uid == resource.data.userId;
+    }
+
+    // Marketplace items
+    match /marketplaceItems/{itemId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasAll([
+             'title','price','category','condition','description',
+             'sellerId','sellerName','location','imageUrl','createdAt'])
+        && request.resource.data.sellerId == request.auth.uid;
+      allow delete: if request.auth != null
+        && resource.data.sellerId == request.auth.uid;
+    }
+
+    // Organizations collection
+    match /organizations/{organizationId} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if true;
+
+      // Organization members subcollection
+      match /organization_members/{userId} {
+        allow read: if true;
+        allow create: if request.auth != null;
+        allow delete: if request.auth != null && 
+                         (request.auth.uid == userId || 
+                          resource.data.createdBy == request.auth.uid);
+      }
+
+      // Organization posts subcollection
+      match /organization_posts/{postId} {
+        allow read: if true;
+        allow create: if request.auth != null && 
+                         request.auth.uid in get(/databases/$(database)/documents/organizations/$(organizationId)).data.memberIds;
+        allow update: if request.auth != null && 
+                         resource.data.authorId == request.auth.uid;
+        allow delete: if request.auth != null && 
+                         (resource.data.authorId == request.auth.uid ||
+                          get(/databases/$(database)/documents/organizations/$(organizationId)).data.createdBy == request.auth.uid);
+      }
+    }
+  }
+}

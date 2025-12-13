@@ -9,6 +9,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:stateful_widget/services/database/database_service.dart';
 import 'package:stateful_widget/models/user_model.dart';
 import 'package:stateful_widget/models/post_model.dart';
+import 'package:stateful_widget/pages/organization_manage_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -42,9 +43,9 @@ class _ProfilePageState extends State<ProfilePage> {
         }
         break;
       case 3:
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Alerts coming soon!')),
-        );
+        if (ModalRoute.of(context)?.settings.name != '/alerts') {
+          Navigator.pushReplacementNamed(context, '/alerts');
+        }
         break;
       case 4:
         if (ModalRoute.of(context)?.settings.name != '/profile') {
@@ -885,7 +886,16 @@ class _OrganizationTile extends StatelessWidget {
                     SizedBox(
                       height: 32,
                       child: ElevatedButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => OrganizationManagePage(
+                                organizationName: name,
+                              ),
+                            ),
+                          );
+                        },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF8D0B15),
                           foregroundColor: Colors.white,

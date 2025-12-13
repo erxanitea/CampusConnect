@@ -432,6 +432,31 @@ class _MarketplacePageState extends State<MarketplacePage> {
                     _buildSearchBar(),
                     const SizedBox(height: 20),
                     _buildCategoryTabs(),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: _showPostItemModal,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF8D0B15),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          icon: const Icon(Icons.add_circle_outline, size: 18),
+                          label: const Text(
+                            'Post Item',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 20),
                     _buildMarketplaceItems(theme),
                   ],
@@ -447,56 +472,54 @@ class _MarketplacePageState extends State<MarketplacePage> {
 
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 26),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFFFFA500), Color(0xFFFF8C00)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          colors: [Color(0xFF921126), Color(0xFFD4372A)],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(28),
+          bottomRight: Radius.circular(28),
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Marketplace',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Buy & sell with campus community',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text(
+                      'Marketplace',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.2,
+                      ),
                     ),
-                  ),
-                ],
+                    SizedBox(height: 4),
+                    Text(
+                      'Buy & sell with campus community',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              // Post Item button in top-right corner
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.3),
-                    width: 1,
-                  ),
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.add_circle_outline, color: Colors.white),
-                  onPressed: _showPostItemModal,
-                  tooltip: 'Post Item for Sale',
-                ),
+              const Icon(
+                Icons.shopping_bag_outlined,
+                color: Colors.white,
+                size: 28,
               ),
             ],
           ),
@@ -794,27 +817,24 @@ class _MarketplacePageState extends State<MarketplacePage> {
   }
 
   void _handleNavTap(int index) {
-    if (index == 1) return;
-    if (index == 0) {
-      Navigator.pop(context);
-      return;
-    }
-    if (index == 2) {
-      setState(() => _navIndex = index);
-      Navigator.pushNamed(context, '/wall').then((_) {
-        if (!mounted) return;
-        setState(() => _navIndex = 1);
-      });
-      return;
-    }
-    if (index == 4) {
-      setState(() => _navIndex = index);
-      Navigator.pushNamed(context, '/profile').then((_) {
-        if (!mounted) return;
-        setState(() => _navIndex = 1);
-      });
-      return;
-    }
+    if (index == _navIndex) return;
     setState(() => _navIndex = index);
+
+    switch (index) {
+      case 0:
+        Navigator.pushReplacementNamed(context, '/home');
+        break;
+      case 1:
+        break;
+      case 2:
+        Navigator.pushReplacementNamed(context, '/wall');
+        break;
+      case 3:
+        Navigator.pushReplacementNamed(context, '/alerts');
+        break;
+      case 4:
+        Navigator.pushReplacementNamed(context, '/profile');
+        break;
+    }
   }
 }
