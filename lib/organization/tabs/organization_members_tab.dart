@@ -111,7 +111,6 @@ class _OrganizationMembersTabState extends State<OrganizationMembersTab> {
         orgId = _organizationId;
       }
       
-      print('DEBUG: _addMember called - orgId: "$orgId", _organizationId: "$_organizationId", widget.organizationId: "${widget.organizationId}"');
       
       if (orgId.isEmpty) {
         throw 'Organization ID is empty - cannot add member';
@@ -189,24 +188,34 @@ class _OrganizationMembersTabState extends State<OrganizationMembersTab> {
                 memberCount = snapshot.data?.length ?? 0;
               }
 
-              return Row(
-                children: [
-                  Expanded(
-                    child: _buildStatCard(
-                      icon: Icons.people_outline,
-                      value: '$memberCount',
-                      label: 'Total Members',
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildStatCard(
-                      icon: Icons.shield_outlined,
-                      value: '1',
-                      label: 'Admins',
-                    ),
-                  ),
-                ],
+              return FutureBuilder<Map<String, String>>(
+                future: snapshot.hasData ? _getMemberRoles(orgId, snapshot.data ?? []) : Future.value({}),
+                builder: (context, rolesSnapshot) {
+                  int adminCount = 0;
+                  if (rolesSnapshot.hasData) {
+                    adminCount = rolesSnapshot.data?.values.where((role) => role == 'admin').length ?? 0;
+                  }
+
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: _buildStatCard(
+                          icon: Icons.people_outline,
+                          value: '$memberCount',
+                          label: 'Total Members',
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildStatCard(
+                          icon: Icons.shield_outlined,
+                          value: '$adminCount',
+                          label: 'Admins',
+                        ),
+                      ),
+                    ],
+                  );
+                },
               );
             },
           ),
@@ -387,10 +396,6 @@ class _OrganizationMembersTabState extends State<OrganizationMembersTab> {
 
                   final memberRoles = rolesSnapshot.data ?? {};
                   
-                  print('DEBUG: Member roles loaded: $memberRoles');
-                  for (final member in members) {
-                    print('DEBUG: ${member.displayName} (${member.uid}) - role: ${memberRoles[member.uid] ?? "NOT FOUND"}');
-                  }
 
                   return Column(
                     children: members
@@ -399,7 +404,6 @@ class _OrganizationMembersTabState extends State<OrganizationMembersTab> {
                         .map((entry) {
                           final user = entry.value;
                           final isAdmin = memberRoles[user.uid] == 'admin';
-                          print('DEBUG: Building card for ${user.displayName} - isAdmin: $isAdmin');
                           return Padding(
                             padding: EdgeInsets.only(
                               bottom: entry.key < members.length - 1 ? 12 : 0,
@@ -481,18 +485,13 @@ class _OrganizationMembersTabState extends State<OrganizationMembersTab> {
     try {
       final rolesMap = <String, String>{};
       
-      print('DEBUG _getMemberRoles: Fetching roles for ${members.length} members');
       for (final member in members) {
-        print('DEBUG: Fetching role for ${member.displayName} (${member.uid})');
         final memberDoc = await _organizationService.getOrganizationMemberRole(
           organizationId,
           member.uid,
         );
         rolesMap[member.uid] = memberDoc;
-        print('DEBUG: ${member.displayName} (${member.uid}) has role: $memberDoc');
       }
-      
-      print('DEBUG: Final rolesMap: $rolesMap');
       return rolesMap;
     } catch (e) {
       print('Error getting member roles: $e');

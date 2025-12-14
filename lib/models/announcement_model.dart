@@ -12,6 +12,7 @@ class Announcement {
   final int likes;
   final int comments;
   final List<String> likedBy;
+  final bool isArchived;
 
   Announcement({
     required this.id,
@@ -25,6 +26,7 @@ class Announcement {
     required this.likes,
     required this.comments,
     required this.likedBy,
+    this.isArchived = false,
   });
 
   factory Announcement.fromMap(Map<String, dynamic> map, String docId) {
@@ -40,6 +42,7 @@ class Announcement {
       likes: map['likes'] ?? 0,
       comments: map['comments'] ?? 0,
       likedBy: List<String>.from(map['likedBy'] ?? []),
+      isArchived: map['isArchived'] ?? false,
     );
   }
 
@@ -62,6 +65,7 @@ class Announcement {
       'likes': likes,
       'comments': comments,
       'likedBy': likedBy,
+      'isArchived': isArchived,
     };
   }
 
@@ -77,6 +81,7 @@ class Announcement {
     int? likes,
     int? comments,
     List<String>? likedBy,
+    bool? isArchived,
   }) {
     return Announcement(
       id: id ?? this.id,
@@ -90,6 +95,7 @@ class Announcement {
       likes: likes ?? this.likes,
       comments: comments ?? this.comments,
       likedBy: likedBy ?? this.likedBy,
+      isArchived: isArchived ?? this.isArchived,
     );
   }
 }

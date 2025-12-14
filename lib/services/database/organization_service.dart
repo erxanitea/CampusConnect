@@ -552,6 +552,106 @@ class OrganizationService {
     }
   }
 
+  Future<Announcement> getAnnouncement(
+    String organizationId,
+    String announcementId,
+  ) async {
+    try {
+      final announcementDoc = await _firestore
+          .collection(_organizationsCollection)
+          .doc(organizationId)
+          .collection(_announcementsCollection)
+          .doc(announcementId)
+          .get();
+
+      if (!announcementDoc.exists) {
+        throw 'Announcement not found';
+      }
+
+      return Announcement.fromSnapshot(announcementDoc);
+    } catch (e) {
+      print('Error getting announcement: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> updateAnnouncement({
+    required String organizationId,
+    required String announcementId,
+    required String title,
+    required String description,
+  }) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) throw 'User not authenticated';
+
+      final announcementRef = _firestore
+          .collection(_organizationsCollection)
+          .doc(organizationId)
+          .collection(_announcementsCollection)
+          .doc(announcementId);
+
+      final announcementDoc = await announcementRef.get();
+      if (!announcementDoc.exists) {
+        throw 'Announcement not found';
+      }
+
+      final announcement = Announcement.fromSnapshot(announcementDoc);
+      if (announcement.createdBy != user.uid) {
+        throw 'Only the creator can edit this announcement';
+      }
+
+      await announcementRef.update({
+        'title': title,
+        'description': description,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      print('Error updating announcement: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> archiveAnnouncement(
+    String organizationId,
+    String announcementId,
+  ) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) throw 'User not authenticated';
+
+      final announcementRef = _firestore
+          .collection(_organizationsCollection)
+          .doc(organizationId)
+          .collection(_announcementsCollection)
+          .doc(announcementId);
+
+      final announcementDoc = await announcementRef.get();
+      if (!announcementDoc.exists) {
+        throw 'Announcement not found';
+      }
+
+      final announcement = Announcement.fromSnapshot(announcementDoc);
+      if (announcement.createdBy != user.uid) {
+        throw 'Only the creator can archive this announcement';
+      }
+
+      await announcementRef.update({
+        'isArchived': true,
+        'archivedAt': FieldValue.serverTimestamp(),
+      });
+
+      try {
+        await updateOrganizationStats(organizationId, posts: -1);
+      } catch (e) {
+        print('Warning: Could not update organization stats: $e');
+      }
+    } catch (e) {
+      print('Error archiving announcement: $e');
+      rethrow;
+    }
+  }
+
   Future<List<AppUser>> searchUsersForMembership(String query) async {
     try {
       final snapshot = await _firestore
@@ -588,20 +688,10 @@ class OrganizationService {
       final members = <AppUser>[];
       for (final memberDoc in membersSnapshot.docs) {
         final userId = memberDoc.id;
-        print('DEBUG getOrganizationMembersDetails: Fetching user data for userId: $userId');
         final userDoc = await _firestore.collection(_usersCollection).doc(userId).get();
         if (userDoc.exists) {
-          final userData = userDoc.data() as Map<String, dynamic>?;
-          print('DEBUG: User document exists for $userId: ${userData?['displayName']}');
           members.add(AppUser.fromFirestore(userDoc));
-        } else {
-          print('DEBUG: User document NOT FOUND for userId: $userId');
         }
-      }
-
-      print('DEBUG: Loaded ${members.length} members for organization $organizationId');
-      for (final member in members) {
-        print('DEBUG: Member - ${member.displayName} (${member.uid})');
       }
 
       return members;

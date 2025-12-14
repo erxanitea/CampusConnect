@@ -122,20 +122,17 @@ class _AdminOrganizationsState extends State<AdminOrganizations> {
                           }
 
                           final orgs = snapshot.data!.docs;
-                          final activeOrgsList = orgs.where((doc) {
-                            final org = Organization.fromSnapshot(doc);
-                            return org.status == 'active';
-                          }).toList();
+                          final allOrgsList = orgs.map((doc) => Organization.fromSnapshot(doc)).toList();
+                          final activeOrgsList = allOrgsList.where((org) => org.status == 'active').toList();
                           
-                          final totalOrgs = activeOrgsList.length;
+                          final totalOrgs = allOrgsList.length;
                           final activeOrgs = activeOrgsList.length;
                           
                           int totalMembers = 0;
-                          for (var doc in activeOrgsList) {
-                            final org = Organization.fromSnapshot(doc);
+                          for (var org in activeOrgsList) {
                             totalMembers += org.memberCount;
                           }
-                          final avgMembers = totalOrgs > 0 ? (totalMembers / totalOrgs).toStringAsFixed(0) : '0';
+                          final avgMembers = activeOrgs > 0 ? (totalMembers / activeOrgs).toStringAsFixed(0) : '0';
 
                           final stats = [
                             {'title': 'Total Orgs', 'value': totalOrgs.toString()},
@@ -401,7 +398,9 @@ class _AdminOrganizationsState extends State<AdminOrganizations> {
                           decoration: BoxDecoration(
                             color: org.status == 'archived'
                                 ? Colors.grey[200]
-                                : const Color(0xFFE8F5E9),
+                                : org.status == 'inactive'
+                                    ? const Color(0xFFFFEBEE)
+                                    : const Color(0xFFE8F5E9),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
@@ -411,7 +410,9 @@ class _AdminOrganizationsState extends State<AdminOrganizations> {
                               fontWeight: FontWeight.w600,
                               color: org.status == 'archived'
                                   ? Colors.grey[700]
-                                  : const Color(0xFF2E7D32),
+                                  : org.status == 'inactive'
+                                      ? const Color(0xFFC62828)
+                                      : const Color(0xFF2E7D32),
                             ),
                           ),
                         ),
@@ -669,139 +670,28 @@ class _AdminOrganizationsState extends State<AdminOrganizations> {
                         color: Colors.black,
                       ),
                     ),
-                    Row(
-                      children: [
-                        ElevatedButton.icon(
-                          onPressed: () async {
-                            try {
-                              await _organizationService
-                                  .diagnoseOrganizationData(org.id);
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Diagnostic report printed to console',
-                                    ),
-                                    backgroundColor: Colors.blue,
-                                  ),
-                                );
-                              }
-                            } catch (e) {
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Error: $e'),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
-                              }
-                            }
-                          },
-                          icon: const Icon(Icons.bug_report, size: 16),
-                          label: const Text('Diagnose'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.orange,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                          ),
+                    ElevatedButton.icon(
+                      onPressed: () => _showAddMembersDialog(
+                        org.id,
+                        org.name,
+                        onMembersAdded: () {
+                          // Refresh the members list in the dialog
+                          setState(() {});
+                        },
+                      ),
+                      icon: const Icon(Icons.person_add, size: 16),
+                      label: const Text('Add Member'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF7C000F),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
                         ),
-                        const SizedBox(width: 8),
-                        ElevatedButton.icon(
-                          onPressed: () async {
-                            try {
-                              // Get all members and find admins
-                              final membersSnapshot = await FirebaseFirestore
-                                  .instance
-                                  .collection('organizations')
-                                  .doc(org.id)
-                                  .collection('organization_members')
-                                  .get();
-
-                              final adminIds = membersSnapshot.docs
-                                  .where((doc) =>
-                                      (doc['role'] ?? 'member') == 'admin')
-                                  .map((doc) => doc.id)
-                                  .toList();
-
-                              if (adminIds.isNotEmpty) {
-                                await _organizationService
-                                    .syncOrganizationData(org.id);
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Organization data synced successfully',
-                                      ),
-                                      backgroundColor: Colors.green,
-                                    ),
-                                  );
-                                }
-                              } else {
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('No admins to fix'),
-                                      backgroundColor: Colors.orange,
-                                    ),
-                                  );
-                                }
-                              }
-                            } catch (e) {
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Error: $e'),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
-                              }
-                            }
-                          },
-                          icon: const Icon(Icons.sync, size: 16),
-                          label: const Text('Sync'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                          ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
                         ),
-                        const SizedBox(width: 8),
-                        ElevatedButton.icon(
-                          onPressed: () => _showAddMembersDialog(
-                            org.id,
-                            org.name,
-                            onMembersAdded: () {
-                              // Refresh the members list in the dialog
-                              setState(() {});
-                            },
-                          ),
-                          icon: const Icon(Icons.person_add, size: 16),
-                          label: const Text('Add Member'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF7C000F),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
@@ -1338,7 +1228,7 @@ class _AdminOrganizationsState extends State<AdminOrganizations> {
                     items: const [
                       DropdownMenuItem(value: 'active', child: Text('Active')),
                       DropdownMenuItem(value: 'inactive', child: Text('Inactive')),
-                      DropdownMenuItem(value: 'pending', child: Text('Pending')),
+                      DropdownMenuItem(value: 'archived', child: Text('Archived')),
                     ],
                     onChanged: (value) {
                       if (value != null) {
