@@ -9,6 +9,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:stateful_widget/services/database/database_service.dart';
 import 'package:stateful_widget/models/user_model.dart';
 import 'package:stateful_widget/models/post_model.dart';
+import 'package:stateful_widget/organization/organization_manage_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -42,9 +43,9 @@ class _ProfilePageState extends State<ProfilePage> {
         }
         break;
       case 3:
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Alerts coming soon!')),
-        );
+        if (ModalRoute.of(context)?.settings.name != '/alerts') {
+          Navigator.pushReplacementNamed(context, '/alerts');
+        }
         break;
       case 4:
         if (ModalRoute.of(context)?.settings.name != '/profile') {
@@ -88,20 +89,6 @@ class _ProfilePageState extends State<ProfilePage> {
     },
   ];
 
-  static const _organizations = [
-    {
-      'name': 'Computer Science Club',
-      'members': '45 members',
-      'role': 'Admin',
-      'accent': Color(0xFF0EA89B),
-    },
-    {
-      'name': 'Student Council',
-      'members': '23 members',
-      'role': 'Member',
-      'accent': Color(0xFF2B50AF),
-    },
-  ];
 
   @override
   void initState() {
@@ -600,34 +587,128 @@ class _ProfilePageState extends State<ProfilePage> {
             ],
           ),
           const SizedBox(height: 18),
-          if (_organizations.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20),
-              child: Text(
-                'Not a member of any organizations yet',
-                style: TextStyle(
-                  color: Colors.grey[500],
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            )
-          else
-            ..._organizations
-                .map(
-                  (org) => Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: _OrganizationTile(
-                      name: org['name'] as String,
-                      members: org['members'] as String,
-                      role: org['role'] as String,
-                      accentColor: org['accent'] as Color,
+          FutureBuilder<List<Map<String, dynamic>>>(
+            future: _getUserOrganizations(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: CircularProgressIndicator(),
+                );
+              }
+
+              if (snapshot.hasError) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: Text(
+                    'Error loading organizations',
+                    style: TextStyle(color: Colors.grey[500]),
+                  ),
+                );
+              }
+
+              final organizations = snapshot.data ?? [];
+
+              if (organizations.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: Text(
+                    'Not a member of any organizations yet',
+                    style: TextStyle(
+                      color: Colors.grey[500],
+                      fontStyle: FontStyle.italic,
                     ),
                   ),
-                )
-                .toList(),
+                );
+              }
+
+              return Column(
+                children: organizations
+                    .where((org) {
+                      final id = org['id'] as String?;
+                      if (id == null || id.isEmpty) {
+                        print('WARNING: Skipping organization with empty ID: ${org['name']}');
+                        return false;
+                      }
+                      return true;
+                    })
+                    .map(
+                      (org) {
+                        final id = org['id'] as String;
+                        print('DEBUG: Creating tile for org - ID: "$id", Name: "${org['name']}"');
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: _OrganizationTile(
+                            name: org['name'] as String,
+                            members: org['members'] as String,
+                            role: org['role'] as String,
+                            accentColor: org['accent'] as Color,
+                            organizationId: id,
+                            isAdmin: org['isAdmin'] as bool,
+                          ),
+                        );
+                      },
+                    )
+                    .toList(),
+              );
+            },
+          ),
         ],
       ),
     );
+  }
+
+  Future<List<Map<String, dynamic>>> _getUserOrganizations() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return [];
+
+      final orgsSnapshot = await FirebaseFirestore.instance
+          .collection('organizations')
+          .get();
+
+      final userOrganizations = <Map<String, dynamic>>[];
+
+      for (final orgDoc in orgsSnapshot.docs) {
+        final orgData = orgDoc.data();
+        final memberIds = List<String>.from(orgData['memberIds'] ?? []);
+        final status = orgData['status'] ?? 'active';
+        
+        print('DEBUG: Organization - ID: "${orgDoc.id}", Name: "${orgData['name']}", Status: "$status"');
+
+        // Only show active organizations where user is a member
+        if (status == 'active' && memberIds.contains(user.uid)) {
+          // Check if user is admin
+          final membersSnapshot = await orgDoc.reference
+              .collection('organization_members')
+              .doc(user.uid)
+              .get();
+
+          final isAdmin = membersSnapshot.exists && 
+              (membersSnapshot['role'] == 'admin');
+
+          if (orgDoc.id.isNotEmpty) {
+            final orgMap = {
+              'id': orgDoc.id,
+              'name': orgData['name'] ?? 'Unknown',
+              'members': '${memberIds.length} members',
+              'role': isAdmin ? 'Admin' : 'Member',
+              'accent': const Color(0xFF8D0B15),
+              'isAdmin': isAdmin,
+            };
+            print('DEBUG: Adding organization to list - ID: "${orgMap['id']}", Name: "${orgMap['name']}"');
+            userOrganizations.add(orgMap);
+          } else {
+            print('WARNING: Organization document has empty ID: $orgDoc');
+          }
+        }
+      }
+
+      return userOrganizations;
+    } catch (e) {
+      print('Error loading user organizations: $e');
+      return [];
+    }
   }
 
   Widget _buildSignOutButton(BuildContext context) {
@@ -821,16 +902,19 @@ class _OrganizationTile extends StatelessWidget {
     required this.members,
     required this.role,
     required this.accentColor,
+    required this.organizationId,
+    required this.isAdmin,
   });
 
   final String name;
   final String members;
   final String role;
   final Color accentColor;
+  final String organizationId;
+  final bool isAdmin;
 
   @override
   Widget build(BuildContext context) {
-    final isAdmin = role.toLowerCase() == 'admin';
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -885,7 +969,17 @@ class _OrganizationTile extends StatelessWidget {
                     SizedBox(
                       height: 32,
                       child: ElevatedButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => OrganizationManagePage(
+                                organizationName: name,
+                                organizationId: organizationId,
+                              ),
+                            ),
+                          );
+                        },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF8D0B15),
                           foregroundColor: Colors.white,

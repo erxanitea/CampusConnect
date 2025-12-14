@@ -49,18 +49,18 @@ class _MessagesPageState extends State<MessagesPage> {
   /* ----------------------------------------------------------
                      Navigation helper
      -------------------------------------------------------- */
-  void _handleNavTap(int index) {
-    if (index == 3) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Alerts coming soon!')),
-      );
-      return;
-    }
-    final route = {0: '/home', 1: '/marketplace', 2: '/wall', 4: '/profile'}[index];
-    if (route != null) {
-      Navigator.pushNamedAndRemoveUntil(context, route, (route) => false);
-    }
-  }
+  //void _handleNavTap(int index) {
+    //if (index == 3) {
+      //ScaffoldMessenger.of(context).showSnackBar(
+        //const SnackBar(content: Text('Alerts coming soon!')),
+      //);
+      //return;
+    //}
+    //final route = {0: '/home', 1: '/marketplace', 2: '/wall', 4: '/profile'}[index];
+    //if (route != null) {
+      //Navigator.pushNamedAndRemoveUntil(context, route, (route) => false);
+    //}
+  //}
 
   /* ----------------------------------------------------------
                      Build
@@ -195,6 +195,72 @@ class _MessagesPageState extends State<MessagesPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _handleNavTap(int index) {
+    String? route;
+    switch (index) {
+      case 0:
+        route = '/home';
+        break;
+      case 1:
+        route = '/marketplace';
+        break;
+      case 2:
+        route = '/wall';
+        break;
+      case 3:
+        route = '/alerts';
+        break;
+      case 4:
+        route = '/profile';
+        break;
+    }
+
+    if (route != null && ModalRoute.of(context)?.settings.name != route) {
+      Navigator.pushNamedAndRemoveUntil(context, route, (route) => false);
+    }
+  }
+}
+
+class _MessagesHeader extends StatelessWidget {
+  const _MessagesHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFFFFA500), Color(0xFFFF8C00)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: const [
+          Text(
+            'Messages',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 30,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          SizedBox(height: 4),
+          Text(
+            'Stay connected with your campus',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }

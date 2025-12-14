@@ -47,13 +47,13 @@ class _MarketplacePageState extends State<MarketplacePage> {
   }
 
   /* ---------- NAVIGATION ---------- */
-  void _handleNavTap(int index) {
-    if (index == 1) return;
-    final route = {0: '/home', 2: '/wall', 4: '/profile'}[index];
-    if (route != null) {
-      Navigator.pushNamedAndRemoveUntil(context, route, (r) => false);
-    }
-  }
+  //void _handleNavTap(int index) {
+    //if (index == 1) return;
+    //final route = {0: '/home', 2: '/wall', 4: '/profile'}[index];
+    //if (route != null) {
+      //Navigator.pushNamedAndRemoveUntil(context, route, (r) => false);
+    //}
+  //}
 
   /* ---------- IMAGE ---------- */
   Future<void> _pickImage([StateSetter? modalSetState]) async {
@@ -344,6 +344,31 @@ class _MarketplacePageState extends State<MarketplacePage> {
                     _buildSearchBar(),
                     const SizedBox(height: 20),
                     _buildCategoryTabs(),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: _showPostItemModal,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF8D0B15),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          icon: const Icon(Icons.add_circle_outline, size: 18),
+                          label: const Text(
+                            'Post Item',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 20),
                     StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
                       stream: _db.getMarketplaceItemsStream(),
@@ -408,40 +433,49 @@ class _MarketplacePageState extends State<MarketplacePage> {
 
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 26),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFFFFA500), Color(0xFFFF8C00)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          colors: [Color(0xFF921126), Color(0xFFD4372A)],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(28),
+          bottomRight: Radius.circular(28),
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Marketplace',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Buy & sell with campus community',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text(
+                      'Marketplace',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.2,
+                      ),
                     ),
-                  ),
-                ],
+                    SizedBox(height: 4),
+                    Text(
+                      'Buy & sell with campus community',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
               ),
               Container(
                 decoration: BoxDecoration(
@@ -688,4 +722,26 @@ class _MarketplacePageState extends State<MarketplacePage> {
         child: Text(text,
             style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: fg)),
       );
+
+  void _handleNavTap(int index) {
+    if (index == _navIndex) return;
+    setState(() => _navIndex = index);
+
+    switch (index) {
+      case 0:
+        Navigator.pushReplacementNamed(context, '/home');
+        break;
+      case 1:
+        break;
+      case 2:
+        Navigator.pushReplacementNamed(context, '/wall');
+        break;
+      case 3:
+        Navigator.pushReplacementNamed(context, '/alerts');
+        break;
+      case 4:
+        Navigator.pushReplacementNamed(context, '/profile');
+        break;
+    }
+  }
 }

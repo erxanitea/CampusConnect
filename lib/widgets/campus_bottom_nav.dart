@@ -30,28 +30,37 @@ class CampusBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BottomNavigationBar(
-      currentIndex: currentIndex,
-      type: BottomNavigationBarType.fixed,
-      selectedItemColor: const Color(0xFF8D0B15),
-      unselectedItemColor: Colors.grey[500],
-      showUnselectedLabels: true,
-      selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w700),
-      unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500),
-      onTap: onItemTapped,
-      items: List.generate(_labels.length, (index) {
-        final badge = index == 3 ? 2 : 0;
-        final isActive = index == currentIndex;
-        return BottomNavigationBarItem(
-          icon: _NavIcon(
-            icon: _navIcons[index],
-            activeIcon: _navActiveIcons[index],
-            active: isActive,
-            badgeCount: badge,
-          ),
-          label: _labels[index],
-        );
-      }),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          height: 1,
+          color: Colors.grey[200],
+        ),
+        BottomNavigationBar(
+          currentIndex: currentIndex,
+          type: BottomNavigationBarType.fixed,
+          selectedItemColor: const Color(0xFF8D0B15),
+          unselectedItemColor: Colors.grey[500],
+          showUnselectedLabels: true,
+          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w700),
+          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500),
+          onTap: onItemTapped,
+          items: List.generate(_labels.length, (index) {
+            final badge = index == 3 ? 2 : 0;
+            final isActive = index == currentIndex;
+            return BottomNavigationBarItem(
+              icon: _NavIcon(
+                icon: _navIcons[index],
+                activeIcon: _navActiveIcons[index],
+                active: isActive,
+                badgeCount: badge,
+              ),
+              label: _labels[index],
+            );
+          }),
+        ),
+      ],
     );
   }
 }
@@ -71,27 +80,18 @@ class _NavIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final iconWidget = AnimatedContainer(
-      duration: const Duration(milliseconds: 150),
-      padding: EdgeInsets.symmetric(horizontal: active ? 12 : 10, vertical: 10),
-      decoration: BoxDecoration(
-        color: active ? const Color(0xFFF5F1ED) : Colors.transparent,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Icon(
-        active ? activeIcon : icon,
-        color: active ? const Color(0xFF8D0B15) : Colors.grey[500],
-      ),
-    );
-
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        iconWidget,
+        Icon(
+          active ? activeIcon : icon,
+          color: active ? const Color(0xFF8D0B15) : Colors.grey[500],
+          size: 24,
+        ),
         if (badgeCount > 0)
           Positioned(
-            right: -6,
-            top: -2,
+            right: -4,
+            top: -4,
             child: _Badge(count: badgeCount),
           ),
       ],
@@ -107,16 +107,20 @@ class _Badge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFBD2C1A),
-        borderRadius: BorderRadius.circular(14),
+      width: 18,
+      height: 18,
+      decoration: const BoxDecoration(
+        color: Color(0xFFBD2C1A),
+        shape: BoxShape.circle,
       ),
-      child: Text(
-        '$count',
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w700,
+      child: Center(
+        child: Text(
+          '$count',
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+            fontSize: 10,
+          ),
         ),
       ),
     );

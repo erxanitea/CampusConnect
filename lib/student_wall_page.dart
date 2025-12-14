@@ -44,9 +44,9 @@ class _StudentWallPageState extends State<StudentWallPage> {
         }
         break;
       case 3:
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Alerts coming soon!')),
-        );
+        if (ModalRoute.of(context)?.settings.name != '/alerts') {
+          Navigator.pushReplacementNamed(context, '/alerts');
+        }
         break;
       case 4:
         if (ModalRoute.of(context)?.settings.name != '/profile') {
@@ -165,34 +165,55 @@ class _StudentWallPageState extends State<StudentWallPage> {
   Widget _buildHeader(ThemeData theme) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(24, 32, 24, 28),
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 26),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
+          colors: [Color(0xFF921126), Color(0xFFD4372A)],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFFFFB347), Color(0xFFFF7E29)],
         ),
         borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(36),
-          bottomRight: Radius.circular(36),
+          bottomLeft: Radius.circular(28),
+          bottomRight: Radius.circular(28),
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Student Wall',
-            style: theme.textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Share your thoughts freely',
-            style: theme.textTheme.bodyLarge?.copyWith(
-              color: Colors.white70,
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text(
+                      'Student Wall',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Share your thoughts freely',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.article_outlined,
+                color: Colors.white,
+                size: 28,
+              ),
+            ],
           ),
         ],
       ),

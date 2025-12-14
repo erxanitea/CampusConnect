@@ -72,22 +72,12 @@ class _LoginFormState extends State<LoginForm> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.5),
-                    ),
-                  ),
-                  child: const Icon(
-                    Icons.school_outlined,
-                    color: Colors.white,
-                    size: 48,
-                  ),
+                Image.asset(
+                  'assets/icons/logo.png',
+                  width: 120,
+                  height: 120,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 0),
                 const Text(
                   'CampusConnect',
                   style: TextStyle(
