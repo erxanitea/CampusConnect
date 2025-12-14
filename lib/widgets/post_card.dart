@@ -15,8 +15,8 @@ class PostCard extends StatefulWidget {
 
 class _PostCardState extends State<PostCard> {
   final DatabaseService _db = DatabaseService();
-  late bool? _isLiked;
-  late int _likeCount = 0;
+  bool? _isLiked;
+  int _likeCount = 0;
 
   @override
   void initState() {
@@ -37,7 +37,7 @@ class _PostCardState extends State<PostCard> {
 
     setState(() {
       _isLiked = !oldLiked;
-      _likeCount += _isLiked! ? 1 : -1;
+      _likeCount += _isLiked! ? 1 : 0;
     });
 
     try {

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:stateful_widget/models/post_model.dart';
 import 'package:stateful_widget/models/message_model.dart';
+import 'package:stateful_widget/models/marketplace_model.dart';
 
 class DatabaseService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -266,4 +267,99 @@ class DatabaseService {
     if (d.inDays < 7) return '${d.inDays}d';
     return '${t.month}/${t.day}';
   }
+
+  // MARKETPLACE
+  Stream<QuerySnapshot<Map<String, dynamic>>> getMarketplaceItemsStream({int limit = 50}) {
+    return _firestore
+      .collection('marketplaceItems')
+      .orderBy('createdAt', descending: true)
+      .limit(limit)
+      .snapshots();
+  }
+
+  Future<String> createMarketplaceItem(MarketplaceItem item) async {
+    final doc = await _firestore.collection('marketplaceItems').add(item.toMap());
+    return doc.id;
+  }
+
+  Future<void> updateMarketplaceItem(MarketplaceItem item) async {
+    await _firestore.collection('marketplaceItems').doc(item.id).update(item.toMap());
+  }
+
+  Future<void> deleteMarketplaceItem(String itemId) async {
+    await _firestore.collection('marketplaceItems').doc(itemId).delete();
+  }
+
+  Future<String> getOrCreateDirectConversation(String otherUserId) async {
+    final user = _auth.currentUser!;
+    final ids = [user.uid, otherUserId]..sort();
+    final convId = '${ids[0]}_${ids[1]}';
+
+    final snap = await _firestore.collection('conversations').doc(convId).get();
+    if (!snap.exists) {
+      //create
+      await _firestore.collection('conversations').doc(convId).set({
+        'memberIds': ids,
+        'type': 'direct',
+        'name': 'Chat',
+        'emoji': '💬',
+        'avatarColor': const Color(0xFFE0F2FF).value,
+        'lastMessage': '',
+        'lastMessageAt': FieldValue.serverTimestamp(),
+      });
+    }
+    return convId;
+  }
+
+  Future<void> sendMessage({
+    required String convId,
+    required String text,
+  }) async {
+
+    final user = _auth.currentUser!;
+    final msg = Message(
+      id: '',
+      conversationId: convId,
+      senderId: user.uid,
+      senderName: user.displayName ?? 'User',
+      content: text.trim(),
+      createdAt: DateTime.now(),
+    );
+
+    //write message
+    await _firestore
+      .collection('conversations')
+      .doc(convId)
+      .collection('messages')
+      .add(msg.toMap());
+
+    // update conversation meta
+    await _firestore.collection('conversations').doc(convId).update({
+      'lastMessage': msg.content,
+      'lastMessageAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  // Listen to messages in a conversation 
+  Stream<QuerySnapshot> getMessagesStream(String convId) {
+    return _firestore
+      .collection('conversations')
+      .doc(convId)
+      .collection('messages')
+      .orderBy('createdAt', descending: true)
+      .snapshots();
+  }
+
+  // listen to converstaion that current user belongs to
+  Stream<QuerySnapshot> getConversationsStream() {
+    final user = _auth.currentUser!;
+    return _firestore
+      .collection('conversations')
+      .where('memberIds', arrayContains: user.uid)
+      .orderBy('lastMessageAt', descending: true)
+      .snapshots();
+  }
+
+  // get user doc snapshot at once 
+  Future<DocumentSnapshot> getUser(String uid) => _firestore.collection('users').doc(uid).get();
 }
