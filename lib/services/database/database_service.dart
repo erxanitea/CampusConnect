@@ -545,4 +545,22 @@ class DatabaseService {
         .snapshots()
         .map((snapshot) => snapshot.docs.length);
   }
+
+  // Add this method to your DatabaseService class
+  Future<List<MarketplaceItem>> getMarketplaceItemsByAuthor(String authorId) async {
+    try {
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('marketplace')
+          .where('authorId', isEqualTo: authorId)
+          .orderBy('createdAt', descending: true)
+          .get();
+      
+      return querySnapshot.docs
+          .map((doc) => MarketplaceItem.fromFirestore(doc))
+          .toList();
+    } catch (e) {
+      print('Error getting marketplace items by author: $e');
+      rethrow;
+    }
+  }
 }

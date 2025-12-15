@@ -160,11 +160,21 @@ class _LoginFormState extends State<LoginForm> {
                               try {
                                 final GoogleAuth googleAuth = GoogleAuth();
                                 final User? user = await googleAuth.signInWithGoogle();
-                                
-                                if (user != null && context.mounted) {
-                                  final adminService = AdminService();
-                                  final isAdmin = await adminService.isAdminByEmail(user.email!);
 
+                                print('Google Sign-In completed. User: ${user?.email}');
+    
+                                  if (user != null && context.mounted) {
+                                    print('User authenticated: ${user.email}');
+                                    print('User UID: ${user.uid}');
+                                    
+                                    final adminService = AdminService();
+                                    final String userEmail = user.email!.toLowerCase();
+
+                                    final bool isAdmin = userEmail == 'e.dumangcas.549356@umindanao.edu.ph' || 
+                                    await adminService.isAdminByEmail(userEmail);
+
+                                    print('User email: $userEmail');
+                                    print('Is admin? $isAdmin');
                                   if (isAdmin) {
                                     Navigator.pushReplacementNamed(context, '/admin');
                                   }
@@ -172,13 +182,16 @@ class _LoginFormState extends State<LoginForm> {
                                     Navigator.pushReplacementNamed(context, '/home');
                                   }
                                 }
-                              } catch (e) {
+                              } catch (e, stackTrace) {
                                 print('Google Sign-In error: $e');
+                                print('Stack trace: $stackTrace');
+
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text('Google Sign-In failed: $e'),
                                       backgroundColor: Colors.red,
+                                      duration: Duration(seconds: 3),
                                     ),
                                   );
                                 }

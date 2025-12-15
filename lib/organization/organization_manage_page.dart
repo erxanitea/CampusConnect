@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:stateful_widget/widgets/campus_bottom_nav.dart';
+import 'package:stateful_widget/models/organization_model.dart';
 import 'tabs/organization_members_tab.dart';
 import 'tabs/organization_posts_tab.dart';
 import 'tabs/organization_marketplace_tab.dart';
@@ -23,12 +25,37 @@ class _OrganizationManagePageState extends State<OrganizationManagePage>
     with TickerProviderStateMixin {
   late TabController _tabController;
   int _navIndex = 3;
+  Organization? _organization;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     print('DEBUG: OrganizationManagePage initState - organizationId: "${widget.organizationId}", organizationName: "${widget.organizationName}"');
     _tabController = TabController(length: 4, vsync: this);
+    _loadOrganizationData();
+  }
+
+  Future<void> _loadOrganizationData() async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('organizations')
+          .doc(widget.organizationId)
+          .get();
+      
+      if (doc.exists) {
+        setState(() {
+          _organization = Organization.fromSnapshot(doc);
+          _isLoading = false;
+        });
+      } else {
+        print('Organization document not found: ${widget.organizationId}');
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      print('Error loading organization data: $e');
+      setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -85,24 +112,45 @@ class _OrganizationManagePageState extends State<OrganizationManagePage>
             _buildHeader(),
             _buildTabBar(),
             Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  OrganizationMembersTab(
-                    organizationName: widget.organizationName,
-                    organizationId: widget.organizationId,
-                  ),
-                  OrganizationPostsTab(
-                    organizationName: widget.organizationName,
-                    organizationId: widget.organizationId,
-                  ),
-                  const OrganizationMarketplaceTab(),
-                  OrganizationMessagesTab(organizationName: widget.organizationName),
-                ],
-              ),
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : TabBarView(
+                      controller: _tabController,
+                      children: [
+                        OrganizationMembersTab(
+                          organizationName: widget.organizationName,
+                          organizationId: widget.organizationId,
+                        ),
+                        OrganizationPostsTab(
+                          organizationName: widget.organizationName,
+                          organizationId: widget.organizationId,
+                        ),
+                        _organization != null
+                            ? OrganizationMarketplaceTab(organization: _organization!)
+                            : _buildErrorTab('Organization data not available'),
+                        OrganizationMessagesTab(organizationName: widget.organizationName),
+                      ],
+                    ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildErrorTab(String message) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline, color: Colors.red, size: 48),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            style: const TextStyle(color: Colors.red),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }
@@ -148,7 +196,7 @@ class _OrganizationManagePageState extends State<OrganizationManagePage>
                 ),
                 const SizedBox(height: 2),
                 const Text(
-                  'Manage Members',
+                  'Manage Organization',
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: 12,
@@ -228,5 +276,4 @@ class _OrganizationManagePageState extends State<OrganizationManagePage>
       ),
     );
   }
-
 }

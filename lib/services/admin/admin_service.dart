@@ -17,7 +17,15 @@ class AdminService {
     
     return await isAdminByEmail(user.email!);
   }
-  
+ 
+  // Add this as a temporary button or run it once
+  void _addAdminEmail() async {
+    final adminService = AdminService();
+    final success = await adminService.addAdminEmail('e.dumangcas.549356@umindanao.edu.ph');
+    print('Admin email added: $success');
+  }
+
+
   // Check if email is in admin_emails collection
   Future<bool> isAdminByEmail(String email) async {
     try {
