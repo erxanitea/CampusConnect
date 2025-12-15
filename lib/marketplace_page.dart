@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
@@ -32,7 +33,10 @@ class _MarketplacePageState extends State<MarketplacePage> {
   String _category = 'Others';
   String? _photoUrls;
   XFile? _imageFile;
+  Uint8List? _imageBytes;
+  bool _isUploadingImage = false;
   bool _isLoading = false;
+  bool _imageSelected = false;
 
   static const List<String> _categories = ['All', 'Books', 'Electronics', 'Clothing', 'Others'];
 
@@ -60,21 +64,24 @@ class _MarketplacePageState extends State<MarketplacePage> {
     final picked = await _picker.pickImage(source: ImageSource.gallery);
     if (picked == null) return;
 
+    final bytes = await picked.readAsBytes();
+
     setState(() {
-      _imageFile = picked;
+      _imageBytes = bytes;
       _photoUrls = null;
+      _isUploadingImage = true;
+      _imageSelected = true;
     });
 
     if (modalSetState != null) {
       modalSetState(() {});
     }
 
-    setState(() => _isLoading = true);
-
     final url = await ImageUploader.upload(picked);
+
     setState(() {
       _photoUrls = url;
-      _isLoading = false;
+      _isUploadingImage = false;
     });
 
     if (modalSetState != null) {
@@ -90,17 +97,45 @@ class _MarketplacePageState extends State<MarketplacePage> {
 
   /* ---------- SUBMIT ---------- */
   Future<void> _submitItem() async {
+    if (_isUploadingImage) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please wait for image to finish uploading')),
+      );
+      return;
+    }
+
+    if (!_imageSelected || _photoUrls == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select and wait for photo to upload')),
+      );
+      return;
+    }
+
     if (_title.text.trim().isEmpty ||
         _price.text.trim().isEmpty ||
         _condition.text.trim().isEmpty ||
         _location.text.trim().isEmpty ||
         _description.text.trim().isEmpty ||
         _photoUrls == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all fields and add a photo')),
-      );
+
+        String errorMsg = 'Please fill: ';
+        if (_title.text.trim().isEmpty) errorMsg += 'Title, ';
+        if (_price.text.trim().isEmpty) errorMsg += 'Price, ';
+        if (_condition.text.trim().isEmpty) errorMsg += 'Condition, ';
+        if (_location.text.trim().isEmpty) errorMsg += 'Location, ';
+        if (_description.text.trim().isEmpty) errorMsg += 'Description, ';
+        if (_photoUrls == null) errorMsg += 'Photo';
+        
+        if (errorMsg.endsWith(', ')) {
+          errorMsg = errorMsg.substring(0, errorMsg.length - 2);
+        }
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMsg)),
+        );
       return;
     }
+
     setState(() => _isLoading = true);
     final user = FirebaseAuth.instance.currentUser!;
     final item = MarketplaceItem(
@@ -122,11 +157,27 @@ class _MarketplacePageState extends State<MarketplacePage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Item posted successfully!')),
       );
+
+      _clearModalState();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
       setState(() => _isLoading = false);
     }
+  }
+
+  void _clearModalState() {
+    _title.clear();
+    _price.clear();
+    _condition.clear();
+    _location.clear();
+    _description.clear();
+    _category = 'Others';
+    _photoUrls = null;
+    _imageBytes = null;
+    _isUploadingImage = false;
+    _isLoading = false;
+    _imageSelected = false;
   }
 
   /* ---------- CHAT ---------- */
@@ -168,6 +219,10 @@ class _MarketplacePageState extends State<MarketplacePage> {
     _category = 'Others';
     _photoUrls = null;
     _imageFile = null;
+    _imageBytes = null;
+    _isUploadingImage = false;
+    _isLoading = false;
+    _imageSelected = false;
 
     showModalBottomSheet(
       context: context,
@@ -205,7 +260,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
                 const Text('Photo', style: TextStyle(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 8),
                 InkWell(
-                  onTap: () => _pickImage(setStateSB),
+                  onTap: _isUploadingImage ? null : () => _pickImage(setStateSB),
                   child: Container(
                     height: 120,
                     decoration: BoxDecoration(
@@ -213,7 +268,7 @@ class _MarketplacePageState extends State<MarketplacePage> {
                       borderRadius: BorderRadius.circular(12),
                       color: Colors.grey[50],
                     ),
-                    child: _isLoading
+                    child: _isUploadingImage
                         ? Center(child: CircularProgressIndicator())
                         : _photoUrls != null
                         ? ClipRRect(
@@ -223,11 +278,11 @@ class _MarketplacePageState extends State<MarketplacePage> {
                               fit: BoxFit.cover
                             ),
                           )
-                        : _imageFile != null
+                        : _imageBytes != null
                         ? ClipRRect(
                             borderRadius: BorderRadius.circular(12),
-                            child: Image.file(
-                              File(_imageFile!.path),
+                            child: Image.memory(
+                              _imageBytes!,
                               fit: BoxFit.cover,
                               width: double.infinity,
                               height: double.infinity,
@@ -282,14 +337,14 @@ class _MarketplacePageState extends State<MarketplacePage> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: _isLoading ? null : _submitItem,
+                    onPressed: (_isLoading || _isUploadingImage) ? null : _submitItem,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF8D0B15),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
-                    child: _isLoading
+                    child: (_isLoading || _isUploadingImage)
                         ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white))
                         : const Text('Post Item', style: TextStyle(fontWeight: FontWeight.w800)),
                   ),
@@ -485,11 +540,6 @@ class _MarketplacePageState extends State<MarketplacePage> {
                     color: Colors.white.withOpacity(0.3),
                     width: 1,
                   ),
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.add_circle_outline, color: Colors.white),
-                  onPressed: _showPostItemModal,
-                  tooltip: 'Post Item for Sale',
                 ),
               ),
             ],

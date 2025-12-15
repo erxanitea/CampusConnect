@@ -178,6 +178,8 @@ class _ChatHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isGroup = conversation['group'] as bool? ?? false;
+    
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
@@ -209,7 +211,7 @@ class _ChatHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  conversation['name'] as String? ?? 'Conversation',
+                  conversation['name'] as String? ?? '',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 20,
@@ -217,13 +219,24 @@ class _ChatHeader extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  conversation['subtitle'] as String? ?? '',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.8),
-                    fontWeight: FontWeight.w500,
+                if (conversation['subtitle'] != null && (conversation['subtitle'] as String).isNotEmpty)
+                  Text(
+                    conversation['subtitle'] as String,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.8),
+                      fontWeight: FontWeight.w500,
+                      fontSize: 13, // Smaller font for email/subtitle
+                    ),
                   ),
-                ),
+                if (isGroup)
+                  Text(
+                    'Group • ${conversation['memberCount'] ?? 'Multiple'} members',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.8),
+                      fontWeight: FontWeight.w500,
+                      fontSize: 13,
+                    ),
+                  ),
               ],
             ),
           ),

@@ -63,6 +63,62 @@ class _MessagesPageState extends State<MessagesPage> {
   //}
 
   /* ----------------------------------------------------------
+     Helper method to fetch conversations with user data
+     -------------------------------------------------------- */
+  Future<List<Map<String, dynamic>>> _fetchConversationsWithUserData(List<QueryDocumentSnapshot> docs) async {
+    final currentUserId = FirebaseAuth.instance.currentUser!.uid;
+    final List<Map<String, dynamic>> conversations = [];
+
+    for (final doc in docs) {
+      final d = doc.data() as Map<String, dynamic>;
+      final memberIds = List<String>.from(d['memberIds'] ?? []);
+
+      // For direct messages, find the other user
+      if (d['type'] == 'direct' && memberIds.length == 2) {
+        final otherUserId = memberIds.firstWhere(
+          (id) => id != currentUserId,
+          orElse: () => memberIds.first,
+        );
+
+        // Fetch user data
+        final userData = await _db.getUserData(otherUserId);
+
+        conversations.add({
+          'id': doc.id,
+          'name': userData?['displayName'],
+          'subtitle': userData?['email'] ?? '',
+          'preview': d['lastMessage'] ?? '',
+          'time': DatabaseService.formatTime(
+            (d['lastMessageAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+          ),
+          'badge': 0,
+          'emoji': d['emoji'] ?? '💬',
+          'avatarColor': Color(d['avatarColor'] ?? 0xFFE0F2FF),
+          'group': false,
+          'accent': const Color(0xFF8D0B15),
+        });
+      } else {
+        // For groups/organizations, use existing data
+        conversations.add({
+          'id': doc.id,
+          'name': d['name'],
+          'subtitle': '${memberIds.length} members',
+          'preview': d['lastMessage'] ?? '',
+          'time': DatabaseService.formatTime(
+            (d['lastMessageAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+          ),
+          'badge': 0,
+          'emoji': d['emoji'] ?? '💬',
+          'avatarColor': Color(d['avatarColor'] ?? 0xFFE0F2FF),
+          'group': true,
+          'accent': const Color(0xFF8D0B15),
+        });
+      }
+    }
+    return conversations;
+  }
+
+  /* ----------------------------------------------------------
                      Build
      -------------------------------------------------------- */
   @override
@@ -148,47 +204,36 @@ class _MessagesPageState extends State<MessagesPage> {
                     return const Center(child: CircularProgressIndicator());
                   }
 
-                  // merge real + dummy (optional)
-                  final real = (snap.data?.docs ?? []).map((doc) {
-                    final d = doc.data() as Map<String, dynamic>;
-                    final memberIds = List<String>.from(d['memberIds'] ?? []);
-                    final otherId = memberIds.firstWhere(
-                          (id) => id != FirebaseAuth.instance.currentUser!.uid,
-                      orElse: () => memberIds.first,
-                    );
-                    return {
-                      'id': doc.id,
-                      'name': d['name'] ?? 'Chat',
-                      'preview': d['lastMessage'] ?? '',
-                      'time': DatabaseService.formatTime(
-                          (d['lastMessageAt'] as Timestamp?)?.toDate() ?? DateTime.now()),
-                      'badge': 0,
-                      'emoji': d['emoji'] ?? '💬',
-                      'avatarColor': Color(d['avatarColor'] ?? 0xFFE0F2FF),
-                      'group': d['type'] != 'direct',
-                      'accent': const Color(0xFF8D0B15),
-                      'subtitle': d['type'] == 'direct' ? 'Direct message' : 'Group',
-                    };
-                  }).toList();
+                  final docs = snap.data?.docs ?? [];
 
-                  final merged = [...real, ..._dummyConversations];
+                  return FutureBuilder<List<Map<String, dynamic>>>(
+                    future: _fetchConversationsWithUserData(docs),
+                    builder: (context, futureSnap) {
+                      if (futureSnap.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
 
-                  if (merged.isEmpty) {
-                    return Center(
-                      child: Text(
-                        'No conversations yet',
-                        style: TextStyle(color: Colors.grey[500]),
-                      ),
-                    );
-                  }
+                      final real = futureSnap.data ?? [];
+                      final merged = [...real, ..._dummyConversations];
 
-                  return ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                    itemBuilder: (context, index) => _ConversationTile(
-                      conversation: merged[index],
-                    ),
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemCount: merged.length,
+                      if (merged.isEmpty) {
+                        return Center(
+                          child: Text(
+                            'No conversations yet',
+                            style: TextStyle(color: Colors.grey[500]),
+                          ),
+                        );
+                      }
+
+                      return ListView.separated(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                        itemBuilder: (context, index) => _ConversationTile(
+                          conversation: merged[index],
+                        ),
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemCount: merged.length,
+                      ); 
+                    },
                   );
                 },
               ),
@@ -347,8 +392,9 @@ class _ConversationTile extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            child: Text(
-                              conversation['name'] as String? ?? 'Conversation',
+                            child:
+                            Text(
+                              conversation['name'] as String? ?? '',
                               style: const TextStyle(
                                 fontWeight: FontWeight.w700,
                                 color: Color(0xFF4A1C1C),
@@ -371,6 +417,16 @@ class _ConversationTile extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 2),
+                      // Show email/subtitle if available
+                      if (conversation['subtitle'] != null && (conversation['subtitle'] as String).isNotEmpty)
+                        Text(
+                          conversation['subtitle'] as String,
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 12,
+                          ),
+                        ),
+                      const SizedBox(height: 4),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [

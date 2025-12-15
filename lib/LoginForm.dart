@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:stateful_widget/services/auth/google_auth.dart';
+import 'package:stateful_widget/services/admin/admin_service.dart';
 
 class LoginForm extends StatefulWidget {
   const LoginForm({super.key});
@@ -161,7 +162,15 @@ class _LoginFormState extends State<LoginForm> {
                                 final User? user = await googleAuth.signInWithGoogle();
                                 
                                 if (user != null && context.mounted) {
-                                  Navigator.pushReplacementNamed(context, '/home');
+                                  final adminService = AdminService();
+                                  final isAdmin = await adminService.isAdminByEmail(user.email!);
+
+                                  if (isAdmin) {
+                                    Navigator.pushReplacementNamed(context, '/admin');
+                                  }
+                                  else {
+                                    Navigator.pushReplacementNamed(context, '/home');
+                                  }
                                 }
                               } catch (e) {
                                 print('Google Sign-In error: $e');

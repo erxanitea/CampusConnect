@@ -19,6 +19,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _navIndex = 0;
+  int _messageBadgeCount = 0;
 
   void _handleNavTap(int index) {
     setState(() {
@@ -92,12 +93,26 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _loadPosts();
+    _loadUnreadMessageCount();
   }
 
   @override
   void dispose() {
     _postsSubscription?.cancel();
     super.dispose();
+  }
+
+  void _loadUnreadMessageCount() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      _databaseService.getUnreadNotificationCount(user.uid).listen((count) {
+        if (mounted) {
+          setState(() {
+            _messageBadgeCount = count;
+          });
+        }
+      });
+    }
   }
 
   void _loadPosts() {
@@ -153,7 +168,7 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       backgroundColor: Colors.white,
       floatingActionButton: FloatingMessagesButton(
-        badgeCount: 4,
+        badgeCount: _messageBadgeCount,
         onPressed: () => Navigator.pushNamed(context, '/messages'),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,

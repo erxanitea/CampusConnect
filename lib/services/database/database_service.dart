@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:stateful_widget/models/post_model.dart';
 import 'package:stateful_widget/models/message_model.dart';
 import 'package:stateful_widget/models/marketplace_model.dart';
+import 'package:flutter/material.dart';
 
 class DatabaseService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -140,6 +141,27 @@ class DatabaseService {
         'updatedAt': FieldValue.serverTimestamp(),
       });
       await updateUserStats(authorId, likes: 1);
+      
+      final postDoc = await _firestore.collection('posts').doc(postId).get();
+      String postContent = '';
+      if (postDoc.exists) {
+        final postData = postDoc.data() as Map<String, dynamic>;
+        postContent = postData['content'] as String? ?? '';
+      }
+
+      await createNotification(
+        userId: authorId,
+        type: 'like',
+        title: '${user.displayName ?? "Someone"} liked your post',
+        body: postContent.length > 50
+          ? '${postContent.substring(0, 50)}...'
+          : postContent,
+        senderId: user.uid,
+        senderName: user.displayName ?? 'User',
+        extraData: {
+          'postId': postId,
+        }
+      );
       return true;
     }
   }
@@ -158,7 +180,7 @@ class DatabaseService {
     return likeSnapshot.docs.isNotEmpty;
   }
 
-  Future<void> addComment({
+  Future<String> addComment({
     required String postId,
     required String content,
     bool isAnonymous = false,
@@ -168,7 +190,7 @@ class DatabaseService {
 
     final authorName = isAnonymous ? 'Anonymous' : (user.displayName ?? 'User');
 
-    await _firestore.collection('comments').add({
+    final commentRef = await _firestore.collection('comments').add({
       'postId': postId,
       'userId': user.uid,
       'authorName': authorName,
@@ -181,6 +203,28 @@ class DatabaseService {
       'commentsCount': FieldValue.increment(1),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+
+    // After creating comment, get post author ID first
+    // You need to fetch the post to get authorId
+    final postDoc = await _firestore.collection('posts').doc(postId).get();
+    if (postDoc.exists) {
+      final postData = postDoc.data() as Map<String, dynamic>;
+      final postAuthorId = postData['authorId'];
+      
+      await createNotification(
+        userId: postAuthorId,
+        type: 'comment',
+        title: '${authorName} commented on your post',
+        body: content.length > 50 ? '${content.substring(0, 50)}...' : content,
+        senderId: user.uid,
+        senderName: authorName,
+        extraData: {
+          'postId': postId,
+          'commentId': commentRef.id,
+        },
+      );
+    }
+    return commentRef.id;
   }
 
   Future<void> deleteComment(String commentId, String postId) async {
@@ -338,6 +382,33 @@ class DatabaseService {
       'lastMessage': msg.content,
       'lastMessageAt': FieldValue.serverTimestamp(),
     });
+
+    // After sending message, notify the other user
+    final convDoc = await _firestore.collection('conversations').doc(convId).get();
+    if (convDoc.exists) {
+      final convData = convDoc.data() as Map<String, dynamic>;
+      final memberIds = List<String>.from(convData['memberIds'] ?? []);
+      
+      // Find the other user ID
+      for (final memberId in memberIds) {
+        if (memberId != user.uid) {
+          await createNotification(
+            userId: memberId,
+            type: 'message',
+            title: 'New message from ${user.displayName ?? "User"}',
+            body: text.trim().length > 50 
+              ? '${text.trim().substring(0, 50)}...' 
+              : text.trim(),
+            senderId: user.uid,
+            senderName: user.displayName ?? 'User',
+            extraData: {
+              'conversationId': convId,
+            },
+          );
+          break;
+        }
+      }
+    }
   }
 
   // Listen to messages in a conversation 
@@ -362,4 +433,116 @@ class DatabaseService {
 
   // get user doc snapshot at once 
   Future<DocumentSnapshot> getUser(String uid) => _firestore.collection('users').doc(uid).get();
+
+  Future<Map<String, dynamic>?> getUserData(String userId) async {
+    try {
+      final doc = await _firestore.collection('users').doc(userId).get();
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>;
+        return {
+          'displayName': data['displayName'],
+          'email': data['email'] ?? '',
+          'photoURL': data['photoURL'],
+        };
+      }
+      return null;
+    } catch (e) {
+      print('Error fetching user data: $e');
+      return null;
+    }
+  }
+
+  // ============ NOTIFICATION METHODS ============
+
+  /// Create a notification
+  Future<void> createNotification({
+    required String userId,
+    required String type,
+    required String title,
+    required String body,
+    required String senderId,
+    required String senderName,
+    Map<String, dynamic>? extraData,
+  }) async {
+    try {
+      final Map<String, dynamic> data = {
+        'senderId': senderId,
+        'senderName': senderName,
+      };
+      
+      if (extraData != null) {
+        data.addAll(extraData);
+      }
+      
+      await _firestore.collection('notifications').add({
+        'userId': userId,
+        'type': type,
+        'title': title,
+        'body': body,
+        'isRead': false,
+        'data': data,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      
+      print('✅ Notification created for user: $userId, type: $type');
+    } catch (e) {
+      print('❌ Error creating notification: $e');
+    }
+  }
+
+  /// Get real-time stream of user notifications
+  Stream<QuerySnapshot> getUserNotificationsStream(String userId) {
+    return _firestore
+        .collection('notifications')
+        .where('userId', isEqualTo: userId)
+        .orderBy('createdAt', descending: true)
+        .snapshots();
+  }
+
+  /// Mark a single notification as read
+  Future<void> markNotificationAsRead(String notificationId) async {
+    try {
+      await _firestore.collection('notifications').doc(notificationId).update({
+        'isRead': true,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      print('Error marking notification as read: $e');
+    }
+  }
+
+  /// Mark all notifications as read for a user
+  Future<void> markAllNotificationsAsRead(String userId) async {
+    try {
+      final snapshot = await _firestore
+          .collection('notifications')
+          .where('userId', isEqualTo: userId)
+          .where('isRead', isEqualTo: false)
+          .get();
+
+      if (snapshot.docs.isEmpty) return;
+
+      final batch = _firestore.batch();
+      for (final doc in snapshot.docs) {
+        batch.update(doc.reference, {
+          'isRead': true,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+      await batch.commit();
+    } catch (e) {
+      print('Error marking all notifications as read: $e');
+    }
+  }
+
+  /// Get unread notification count
+  Stream<int> getUnreadNotificationCount(String userId) {
+    return _firestore
+        .collection('notifications')
+        .where('userId', isEqualTo: userId)
+        .where('isRead', isEqualTo: false)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.length);
+  }
 }
