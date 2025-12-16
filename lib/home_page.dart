@@ -117,26 +117,56 @@ class _HomePageState extends State<HomePage> {
 
   void _loadPosts() {
     _isLoading = true;
-    _postsSubscription = _databaseService.getPostsStream().listen((snapshot) {
+    
+    // Load regular posts
+    _postsSubscription = _databaseService.getPostsStream().listen((snapshot) async {
       if (snapshot.docs.isEmpty) {
+        // If no regular posts, still try to load org announcements
+        final orgAnnouncements = await _databaseService.getOrganizationAnnouncementsAsPosts();
+        
         if (mounted) {
           setState(() {
             _isLoading = false;
-            _allPosts = [];
-            _confessions = [];
+            _allPosts = orgAnnouncements;
+            _confessions = orgAnnouncements.where((post) => post.category == 'Confession').toList();
           });
         }
         return;
       }
-      final posts = snapshot.docs.map((doc) => Post.fromFirestore(doc)).toList();
-      final confessions = posts.where((post) => post.category == 'Confession').toList();
-
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _allPosts = posts;
-          _confessions = confessions;
-        });
+      
+      try {
+        // Get regular posts
+        final posts = snapshot.docs.map((doc) => Post.fromFirestore(doc)).toList();
+        
+        // Get organization announcements (ASYNC)
+        final orgAnnouncements = await _databaseService.getOrganizationAnnouncementsAsPosts();
+        
+        // Combine and sort by date (newest first)
+        final allContent = [...posts, ...orgAnnouncements]
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        
+        final confessions = allContent.where((post) => post.category == 'Confession').toList();
+        
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _allPosts = allContent;
+            _confessions = confessions;
+          });
+        }
+      } catch (e) {
+        print('Error combining posts: $e');
+        // Fallback: just show regular posts
+        final posts = snapshot.docs.map((doc) => Post.fromFirestore(doc)).toList();
+        final confessions = posts.where((post) => post.category == 'Confession').toList();
+        
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _allPosts = posts;
+            _confessions = confessions;
+          });
+        }
       }
     }, onError: (error) {
       if (mounted) {
@@ -150,14 +180,16 @@ class _HomePageState extends State<HomePage> {
 
   List<Post> get _displayedPosts {
     switch (_selectedFilter) {
-      case 0:
+      case 0: // All - show everything
         return _allPosts;
-      case 1:
-        return _allPosts.where((post) => post.category == 'Announcement').toList();
-      case 2:
+      case 1: // Orgs - show organization announcements
+        return _allPosts.where((post) {
+          return post.organizationId != null && post.organizationId!.isNotEmpty;
+        }).toList();
+      case 2: // Confessions
         return _confessions;
       default:
-        return _allPosts;
+        return _allPosts;    
     }
   }
 

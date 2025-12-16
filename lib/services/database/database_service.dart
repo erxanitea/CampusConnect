@@ -563,4 +563,98 @@ class DatabaseService {
       rethrow;
     }
   }
+
+ Future<List<Post>> getOrganizationAnnouncementsAsPosts() async {
+    try {
+      // Get all active organizations
+      final organizationsSnapshot = await _firestore
+          .collection('organizations')
+          .where('status', isEqualTo: 'active')
+          .get();
+      
+      final allAnnouncementPosts = <Post>[];
+      
+      // For each organization, get its announcements
+      for (final orgDoc in organizationsSnapshot.docs) {
+        final orgData = orgDoc.data() as Map<String, dynamic>;
+        final orgId = orgDoc.id;
+        final orgName = orgData['name'] ?? 'Organization';
+        
+        try {
+          // SIMPLIFIED QUERY: Get ALL announcements without any filters or ordering
+          // We'll handle filtering and sorting in memory
+          final announcementsSnapshot = await _firestore
+              .collection('organizations')
+              .doc(orgId)
+              .collection('announcements')
+              .get(); // NO where() clause, NO orderBy()
+          
+          // Process each announcement
+          for (final annDoc in announcementsSnapshot.docs) {
+            final annData = annDoc.data() as Map<String, dynamic>;
+            
+            // Skip archived announcements
+            if (annData['isArchived'] == true) {
+              continue;
+            }
+            
+            // Get creator user data for the avatar/name
+            final creatorId = annData['createdBy'] ?? '';
+            Map<String, dynamic>? creatorData;
+            if (creatorId.isNotEmpty) {
+              try {
+                creatorData = await getUserData(creatorId);
+              } catch (e) {
+                print('Error getting user data for $creatorId: $e');
+              }
+            }
+            
+            // Get timestamp safely
+            DateTime createdAt;
+            try {
+              final timestamp = annData['createdAt'] as Timestamp?;
+              createdAt = timestamp?.toDate() ?? DateTime.now();
+            } catch (e) {
+              createdAt = DateTime.now();
+            }
+            
+            // Create Post object from Announcement
+            final post = Post(
+              id: 'org_ann_${orgId}_${annDoc.id}', // Unique ID
+              authorId: creatorId,
+              authorName: annData['createdByName'] ?? orgName,
+              authorPhoto: annData['createdByPhotoUrl'] ?? creatorData?['photoURL'],
+              content: '${annData['title'] ?? ''}\n\n${annData['description'] ?? ''}',
+              category: 'Organization Announcement',
+              emoji: '🏢',
+              likesCount: annData['likes'] ?? 0,
+              commentsCount: annData['comments'] ?? 0,
+              sharesCount: 0,
+              createdAt: createdAt,
+              updatedAt: createdAt,
+              isAnonymous: false,
+              // Organization metadata
+              organizationId: orgId,
+              organizationName: orgName,
+            );
+            
+            allAnnouncementPosts.add(post);
+          }
+        } catch (e) {
+          print('Error loading announcements for org $orgId: $e');
+          // Continue with other organizations even if one fails
+          continue;
+        }
+      }
+      
+      // Sort all announcements by date (newest first)
+      allAnnouncementPosts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      
+      print('✅ Loaded ${allAnnouncementPosts.length} organization announcements');
+      return allAnnouncementPosts;
+    } catch (e) {
+      print('❌ Error loading organization announcements: $e');
+      return [];
+    }
+  }
 }
