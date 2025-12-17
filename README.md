@@ -15,11 +15,10 @@ CampusConnect is a Flutter + Firebase application built for campus communities. 
 📷 **Screenshots**
 
 <p align="center">
-  <img src="docs/images/login.png" alt="Login screen preview" width="280" />
-  <img src="docs/images/student-home.png" alt="Student home experience" width="280" />
+  <img src="docs/images/login.png" alt="Login screen preview" width="320" />
 </p>
 <p align="center">
-  <img src="docs/images/admin-dashboard.png" alt="Admin dashboard overview" width="280" />
+  <img src="docs/images/student-home.png" alt="Student home experience" width="280" />
   <img src="docs/images/org-manager.png" alt="Organization manager interface" width="280" />
 </p>
 
