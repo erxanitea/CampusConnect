@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+/// Placeholder tab describing the upcoming broadcast messaging workflow.
 class OrganizationMessagesTab extends StatelessWidget {
   final String organizationName;
 

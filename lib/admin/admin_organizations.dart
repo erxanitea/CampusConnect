@@ -33,6 +33,7 @@ class _AdminOrganizationsState extends State<AdminOrganizations> {
   File? _selectedLogoFile;
   int _memberListRefreshKey = 0;
 
+  /// Placeholder stats while Firestore data loads.
   static const _statsData = [
     {'title': 'Total Orgs', 'value': '0'},
     {'title': 'Avg Members', 'value': '0'},
@@ -45,15 +46,14 @@ class _AdminOrganizationsState extends State<AdminOrganizations> {
     _cleanupAndSyncAllMemberCounts();
   }
 
+  /// Keeps Firestore member counts in sync before any dashboards render.
   Future<void> _cleanupAndSyncAllMemberCounts() async {
     try {
       print('Starting cleanup and sync of all organization member counts...');
       await _organizationService.syncAllOrganizationMemberCounts();
       print('All organization member counts synced successfully');
       if (mounted) {
-        // Force a complete rebuild to refresh all StreamBuilders
         setState(() {});
-        // Add a small delay to ensure Firestore has updated
         await Future.delayed(const Duration(milliseconds: 500));
         setState(() {});
       }
@@ -179,6 +179,7 @@ class _AdminOrganizationsState extends State<AdminOrganizations> {
     );
   }
 
+  /// Gradient hero header outlining current admin context.
   Widget _buildHeader() {
     return Container(
       width: double.infinity,
@@ -238,6 +239,7 @@ class _AdminOrganizationsState extends State<AdminOrganizations> {
     );
   }
 
+  /// Re-usable stat tile for dashboard level metrics.
   Widget _buildStatCard(Map<String, dynamic> stat) {
     return SizedBox(
       width: double.infinity,
@@ -281,6 +283,7 @@ class _AdminOrganizationsState extends State<AdminOrganizations> {
     );
   }
 
+  /// Empty placeholder when no organizations exist yet.
   Widget _buildEmptyState() {
     return Container(
       padding: const EdgeInsets.all(32),
@@ -315,6 +318,7 @@ class _AdminOrganizationsState extends State<AdminOrganizations> {
     );
   }
 
+  /// Lists organizations with key engagement metrics for quick review.
   Widget _buildTopOrganizationsCard(List<dynamic> docs) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -362,6 +366,7 @@ class _AdminOrganizationsState extends State<AdminOrganizations> {
     );
   }
 
+  /// Detailed card with quick actions for a single organization.
   Widget _buildOrgItem(Organization org) {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -510,6 +515,7 @@ class _AdminOrganizationsState extends State<AdminOrganizations> {
     );
   }
 
+  /// Modal detailing organization profile, activity and member list.
   void _showOrgDetailsDialog(Organization org) {
     showDialog(
       context: context,
@@ -730,7 +736,6 @@ class _AdminOrganizationsState extends State<AdminOrganizations> {
                       );
                     }
 
-                    // Sort members by admin status
                     final sortedMemberDocs = memberDocs.toList();
                     sortedMemberDocs.sort((a, b) {
                       final aIsAdmin = a['role'] == 'admin' ? 0 : 1;
@@ -826,7 +831,6 @@ class _AdminOrganizationsState extends State<AdminOrganizations> {
                                             userId,
                                           );
                                           
-                                          // Sync member count after removal
                                           await _organizationService
                                               .syncOrganizationMemberCount(org.id);
                                           
@@ -1263,7 +1267,6 @@ class _AdminOrganizationsState extends State<AdminOrganizations> {
                           try {
                             String? logoUrl;
                             
-                            // Upload image if selected
                             if (_selectedLogoFile != null) {
                               final tempOrgId = 'org_${DateTime.now().millisecondsSinceEpoch}';
                               logoUrl = await _organizationService.uploadOrganizationLogo(
@@ -1483,7 +1486,6 @@ class _AdminOrganizationsState extends State<AdminOrganizations> {
                                                 role: 'admin',
                                               );
 
-                                              // Sync organization data to ensure consistency
                                               await _organizationService
                                                   .syncOrganizationData(organizationId);
 
@@ -1979,7 +1981,6 @@ class _AdminOrganizationsState extends State<AdminOrganizations> {
                           try {
                             String? logoUrl;
                             
-                            // Upload image if selected
                             if (_selectedLogoFile != null) {
                               logoUrl = await _organizationService.uploadOrganizationLogo(
                                 org.id,
@@ -2092,28 +2093,25 @@ class _AdminOrganizationsState extends State<AdminOrganizations> {
     );
   }
 
+  /// Keeps the bottom navigation in sync with the current admin screen.
   void _handleNavTap(int index) {
     switch (index) {
       case 0:
-        // Dashboard - pop all the way back to dashboard
         Navigator.of(context).popUntil((route) => route.isFirst);
         break;
       case 1:
-        // Analytics
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const AdminAnalytics()),
         );
         break;
       case 2:
-        // Reports
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const AdminReports()),
         );
         break;
       case 3:
-        // Organizations - already on it
         break;
     }
   }

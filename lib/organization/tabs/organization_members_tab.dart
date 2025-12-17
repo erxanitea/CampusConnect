@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:stateful_widget/services/database/organization_service.dart';
 import 'package:stateful_widget/models/user_model.dart';
 
+/// Admin tab for managing membership roster, invites, and roles.
 class OrganizationMembersTab extends StatefulWidget {
   final String organizationName;
   final String organizationId;
@@ -22,6 +23,7 @@ class _OrganizationMembersTabState extends State<OrganizationMembersTab> {
   List<AppUser> _searchResults = [];
   List<AppUser> _currentMembers = [];
   bool _isSearching = false;
+  /// Cached future for the members section to avoid repeated queries.
   Future<List<AppUser>>? _membersFuture;
   String _organizationId = '';
 
@@ -481,6 +483,7 @@ class _OrganizationMembersTabState extends State<OrganizationMembersTab> {
     );
   }
 
+  /// Fetches role labels for each member so UI can highlight admins.
   Future<Map<String, String>> _getMemberRoles(String organizationId, List<AppUser> members) async {
     try {
       final rolesMap = <String, String>{};
@@ -499,6 +502,7 @@ class _OrganizationMembersTabState extends State<OrganizationMembersTab> {
     }
   }
 
+  /// Elevates a member to admin status for the given organization.
   Future<void> _promoteToAdmin(String userId, String organizationId) async {
     try {
       String orgId = organizationId.isNotEmpty ? organizationId : _organizationId;
@@ -526,6 +530,7 @@ class _OrganizationMembersTabState extends State<OrganizationMembersTab> {
     }
   }
 
+  /// Removes admin privileges from a user while keeping them as member.
   Future<void> _demoteFromAdmin(String userId, String organizationId) async {
     try {
       String orgId = organizationId.isNotEmpty ? organizationId : _organizationId;

@@ -58,6 +58,7 @@ class _OrganizationMarketplaceTabState extends State<OrganizationMarketplaceTab>
     super.dispose();
   }
 
+  /// Loads items posted by this organization to hydrate the tab list.
   Future<void> _loadOrganizationItems() async {
     try {
       final items = await _db.getMarketplaceItemsByAuthor(widget.organization.id);
@@ -74,6 +75,7 @@ class _OrganizationMarketplaceTabState extends State<OrganizationMarketplaceTab>
   }
 
   /* ---------- IMAGE UPLOAD ---------- */
+  /// Picks an image from gallery and handles immediate upload to storage.
   Future<void> _pickImage([StateSetter? modalSetState]) async {
     final picked = await _picker.pickImage(source: ImageSource.gallery);
     if (picked == null) return;
@@ -110,6 +112,7 @@ class _OrganizationMarketplaceTabState extends State<OrganizationMarketplaceTab>
   }
 
   /* ---------- SUBMIT ITEM ---------- */
+  /// Validates form data and posts a marketplace item as the organization.
   Future<void> _submitItem() async {
     if (_isUploadingImage) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -191,6 +194,7 @@ class _OrganizationMarketplaceTabState extends State<OrganizationMarketplaceTab>
     }
   }
 
+  /// Resets modal form state after closing or successful submission.
   void _clearModalState() {
     _title.clear();
     _price.clear();
@@ -206,6 +210,7 @@ class _OrganizationMarketplaceTabState extends State<OrganizationMarketplaceTab>
   }
 
   /* ---------- MODAL FOR POSTING ---------- */
+  /// Bottom sheet used by org admins to create marketplace listings.
   void _showPostItemModal() {
     // Reset state
     _title.clear();
@@ -376,6 +381,7 @@ class _OrganizationMarketplaceTabState extends State<OrganizationMarketplaceTab>
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       );
 
+  /// Card widget summarizing an organization marketplace post.
   Widget _buildMarketplaceItemCard(MarketplaceItem item, ThemeData theme) {
     return Container(
       decoration: BoxDecoration(

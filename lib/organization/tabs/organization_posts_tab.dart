@@ -31,6 +31,7 @@ class _OrganizationPostsTabState extends State<OrganizationPostsTab> {
     super.dispose();
   }
 
+  /// Handles both create and update flows for announcements.
   Future<void> _postAnnouncement() async {
     if (_titleController.text.isEmpty || _descriptionController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -85,6 +86,7 @@ class _OrganizationPostsTabState extends State<OrganizationPostsTab> {
     }
   }
 
+  /// Loads an announcement back into the form to allow editing.
   void _editAnnouncement(Announcement announcement) {
     setState(() {
       _editingAnnouncementId = announcement.id;
@@ -93,6 +95,7 @@ class _OrganizationPostsTabState extends State<OrganizationPostsTab> {
     });
   }
 
+  /// Resets the compose form when edits are cancelled.
   void _cancelEdit() {
     setState(() {
       _editingAnnouncementId = null;
@@ -101,6 +104,7 @@ class _OrganizationPostsTabState extends State<OrganizationPostsTab> {
     });
   }
 
+  /// Archives an announcement after an explicit confirmation prompt.
   Future<void> _archiveAnnouncement(Announcement announcement) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -145,6 +149,7 @@ class _OrganizationPostsTabState extends State<OrganizationPostsTab> {
     }
   }
 
+  /// Formats a timestamp into a lightweight “time ago” label.
   String _getTimeAgo(DateTime dateTime) {
     final now = DateTime.now();
     final difference = now.difference(dateTime);
@@ -321,6 +326,7 @@ class _OrganizationPostsTabState extends State<OrganizationPostsTab> {
     );
   }
 
+  /// Renders a single announcement with actions for the creator.
   Widget _buildAnnouncementCard(Announcement announcement) {
     final currentUser = FirebaseAuth.instance.currentUser;
     final isCreator = currentUser?.uid == announcement.createdBy;
