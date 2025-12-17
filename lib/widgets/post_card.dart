@@ -15,8 +15,8 @@ class PostCard extends StatefulWidget {
 
 class _PostCardState extends State<PostCard> {
   final DatabaseService _db = DatabaseService();
-  late bool? _isLiked;
-  late int _likeCount = 0;
+  bool? _isLiked;
+  int _likeCount = 0;
 
   @override
   void initState() {
@@ -37,7 +37,7 @@ class _PostCardState extends State<PostCard> {
 
     setState(() {
       _isLiked = !oldLiked;
-      _likeCount += _isLiked! ? 1 : -1;
+      _likeCount += _isLiked! ? 1 : 0;
     });
 
     try {
@@ -87,6 +87,7 @@ class _PostCardState extends State<PostCard> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final post = widget.post;
+    final isOrganizationAnnouncement = post.category == 'Organization Announcement';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 18),
@@ -108,10 +109,12 @@ class _PostCardState extends State<PostCard> {
         children: [
           _header(theme, post),
           const SizedBox(height: 16),
-          Text(post.content, 
-            style: theme.textTheme.bodyLarge
-            ?.copyWith(color: const Color(0xFF4E2A3A), height: 1.4)
-          ),
+          
+            if (isOrganizationAnnouncement) 
+              _buildOrganizationAnnouncementContent(post, theme)
+            else
+              _buildRegularPostContent(post, theme),
+
           const SizedBox(height: 16),
           const Divider(color: Color(0xFFEBD9D4), thickness: 0.8),
           const SizedBox(height: 12),
@@ -218,30 +221,76 @@ class _PostCardState extends State<PostCard> {
     );
   }
 
-  Widget _chip(IconData icon, String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(20),
+  Widget _buildOrganizationAnnouncementContent(Post post, ThemeData theme) {
+  // Split content into title and description
+  final content = post.content;
+  final lines = content.split('\n\n');
+  final title = lines.isNotEmpty ? lines[0] : '';
+  final description = lines.length > 1 ? lines.sublist(1).join('\n\n') : '';
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      // TITLE - Bold and larger
+      Text(
+        title,
+        style: theme.textTheme.titleLarge?.copyWith(
+          fontWeight: FontWeight.w800,
+          color: const Color(0xFF4E2A3A),
+          fontSize: 20,
+          height: 1.3,
+        ),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min, 
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600, 
-              color: color,
-            ),
+      const SizedBox(height: 12),
+      
+      // DESCRIPTION - Regular text
+      if (description.isNotEmpty) ...[
+        Text(
+          description,
+          style: theme.textTheme.bodyLarge?.copyWith(
+            color: const Color(0xFF4E2A3A),
+            height: 1.4,
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ],
+  );
+}
+
+Widget _buildRegularPostContent(Post post, ThemeData theme) {
+  return Text(
+    post.content,
+    style: theme.textTheme.bodyLarge?.copyWith(
+      color: const Color(0xFF4E2A3A),
+      height: 1.4,
+    ),
+  );
+}
+
+Widget _chip(IconData icon, String label, Color color) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    decoration: BoxDecoration(
+      color: color.withOpacity(0.15),
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min, 
+      children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600, 
+            color: color,
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _iconStat(IconData icon, int count, {Color? color, VoidCallback? onTap}) {
     return InkWell(

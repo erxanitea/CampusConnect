@@ -23,7 +23,8 @@ class FloatingMessagesButton extends StatelessWidget {
         foregroundColor: Colors.white,
         elevation: 10,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(34)),
-        onPressed: onPressed,
+        onPressed: onPressed ?? () =>
+          Navigator.pushNamed(context, '/messages'),
         child: Stack(
           alignment: Alignment.center,
           clipBehavior: Clip.none,
