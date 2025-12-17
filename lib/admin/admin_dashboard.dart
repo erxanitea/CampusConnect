@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:stateful_widget/admin/admin_analytics.dart';
 import 'package:stateful_widget/admin/admin_reports.dart';
 import 'package:stateful_widget/admin/admin_organizations.dart';
+import 'package:stateful_widget/services/auth/google_auth.dart';
 import 'package:stateful_widget/widgets/admin_bottom_nav.dart';
 
 class AdminDashboard extends StatefulWidget {
@@ -14,6 +15,7 @@ class AdminDashboard extends StatefulWidget {
 class _AdminDashboardState extends State<AdminDashboard> {
   int _navIndex = 0;
 
+  /// Demo metrics powering the stat cards.
   static const _dashboardStats = [
     {
       'title': 'Total Users',
@@ -49,6 +51,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     },
   ];
 
+  /// Action shortcuts displayed under the stats section.
   static const _quickActions = [
     {
       'title': 'Review Pending Reports',
@@ -143,9 +146,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ],
           ),
           IconButton(
-            onPressed: () {
-              // Handle logout
-            },
+            onPressed: _handleLogoutPressed,
             icon: const Icon(
               Icons.logout,
               color: Colors.white,
@@ -312,44 +313,78 @@ class _AdminDashboardState extends State<AdminDashboard> {
   void _handleNavTap(int index) {
     switch (index) {
       case 0:
-        // Dashboard - already on it
         break;
       case 1:
-        // Analytics
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const AdminAnalytics()),
         ).then((result) {
-          // Reset nav index when returning from Analytics
           setState(() {
             _navIndex = 0;
           });
         });
         break;
       case 2:
-        // Reports
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const AdminReports()),
         ).then((result) {
-          // Reset nav index when returning from Reports
           setState(() {
             _navIndex = 0;
           });
         });
         break;
       case 3:
-        // Organizations
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const AdminOrganizations()),
         ).then((result) {
-          // Reset nav index when returning from Organizations
           setState(() {
             _navIndex = 0;
           });
         });
         break;
     }
+  }
+
+  /// Confirms with the admin before clearing auth state and returning to login.
+  Future<void> _handleLogoutPressed() async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Sign out?'),
+          content: const Text('You will be returned to the login screen and will need to sign in again to access the admin console.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Sign out'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldLogout != true) return;
+
+    try {
+      await GoogleAuth().signOut();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Sign out failed: $e'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
   }
 }

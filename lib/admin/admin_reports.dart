@@ -13,6 +13,7 @@ class AdminReports extends StatefulWidget {
 class _AdminReportsState extends State<AdminReports> {
   int _navIndex = 2;
 
+  /// Sample moderation queue used to populate the Pending Reports card.
   static const _reports = [
     {
       'type': 'Spam',
@@ -519,24 +520,21 @@ class _AdminReportsState extends State<AdminReports> {
     );
   }
 
+  /// Syncs the bottom navigation selection with the respective admin page.
   void _handleNavTap(int index) {
     switch (index) {
       case 0:
-        // Dashboard - pop all the way back to dashboard
         Navigator.of(context).popUntil((route) => route.isFirst);
         break;
       case 1:
-        // Analytics
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const AdminAnalytics()),
         );
         break;
       case 2:
-        // Reports - already on it
         break;
       case 3:
-        // Organizations
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const AdminOrganizations()),

@@ -18,15 +18,28 @@ class Message {
   });
 
   factory Message.fromFirestore(DocumentSnapshot doc) {
-    final d = doc.data() as Map<String, dynamic>;
+    final d = doc.data() as Map<String, dynamic>? ?? {};
+
+    // Safely handle the timestamp
+    DateTime parseTimestamp() {
+      final timestamp = d['createdAt'];
+      if (timestamp is Timestamp) {
+        return timestamp.toDate();
+      } else if (timestamp is DateTime) {
+        return timestamp;
+      } else {
+        // Default to current time if timestamp is null or invalid
+        return DateTime.now();
+      }
+    }
 
     return Message(
       id: doc.id,
-      conversationId: d['conversationId'] ?? '',
-      senderId: d['senderId'] ?? '',
-      senderName: d['senderName'] ?? 'User',
-      content: d['content'] ?? '',
-      createdAt: (d['createdAt'] as Timestamp).toDate(),
+      conversationId: d['conversationId'] as String? ?? '',
+      senderId: d['senderId'] as String? ?? '',
+      senderName: d['senderName'] as String? ?? 'User',
+      content: d['content'] as String? ?? '',
+      createdAt: parseTimestamp(),
     );
   }
 

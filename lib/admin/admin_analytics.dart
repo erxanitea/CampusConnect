@@ -13,6 +13,7 @@ class AdminAnalytics extends StatefulWidget {
 class _AdminAnalyticsState extends State<AdminAnalytics> {
   int _navIndex = 1;
 
+  /// Sample activity mix powering the donut visualization.
   static const _engagementData = [
     {'label': 'Comments', 'value': 28, 'color': Color(0xFF6B4C4C)},
     {'label': 'Messages', 'value': 38, 'color': Color(0xFF8D6B6B)},
@@ -20,6 +21,7 @@ class _AdminAnalyticsState extends State<AdminAnalytics> {
     {'label': 'Posts', 'value': 19, 'color': Color(0xFF8D0B15)},
   ];
 
+  /// Headline KPI cards shown beneath the charts.
   static const _metricsData = [
     {
       'title': 'Total Posts',
@@ -351,22 +353,19 @@ class _AdminAnalyticsState extends State<AdminAnalytics> {
     );
   }
 
+  /// Handles admin bottom navigation transitions from analytics.
   void _handleNavTap(int index) {
     switch (index) {
       case 0:
-        // Dashboard - pop back with nav index 0
         Navigator.pop(context, 0);
         break;
       case 1:
-        // Analytics - already on it
         break;
       case 2:
-        // Reports
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const AdminReports()),
         ).then((result) {
-          // Update nav index if returning from Reports
           if (result != null) {
             setState(() {
               _navIndex = result as int;
@@ -375,7 +374,6 @@ class _AdminAnalyticsState extends State<AdminAnalytics> {
         });
         break;
       case 3:
-        // Organizations
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const AdminOrganizations()),
@@ -403,7 +401,6 @@ class LineChartPainter extends CustomPainter {
       textDirection: TextDirection.ltr,
     );
 
-    // Data points: Jan, Feb, Mar, Apr, May, Jun
     final dataPoints = [60.0, 100.0, 130.0, 150.0, 170.0, 190.0];
     final labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
 
@@ -449,14 +446,12 @@ class LineChartPainter extends CustomPainter {
     }
     canvas.drawPath(path, paint);
 
-    // Draw data points
     for (int i = 0; i < dataPoints.length; i++) {
       final x = pointSpacing * i;
       final y = chartHeight - (dataPoints[i] / maxValue) * chartHeight;
       canvas.drawCircle(Offset(x, y), 3, pointPaint);
     }
 
-    // Draw X-axis labels
     for (int i = 0; i < labels.length; i++) {
       final x = pointSpacing * i;
       textPainter.text = TextSpan(
@@ -467,7 +462,6 @@ class LineChartPainter extends CustomPainter {
       textPainter.paint(canvas, Offset(x - textPainter.width / 2, chartHeight + 8));
     }
 
-    // Draw "USERS" label
     textPainter.text = TextSpan(
       text: 'USERS',
       style: TextStyle(color: Colors.grey[600], fontSize: 10, fontWeight: FontWeight.w600),
@@ -502,7 +496,6 @@ class DonutChartPainter extends CustomPainter {
       final sweepAngle = (value / total) * 360;
       final color = item['color'] as Color;
 
-      // Draw segment
       final paint = Paint()
         ..color = color
         ..style = PaintingStyle.fill;
@@ -533,7 +526,6 @@ class DonutChartPainter extends CustomPainter {
       startAngle += sweepAngle;
     }
 
-    // Draw inner white circle
     canvas.drawCircle(
       center,
       innerRadius,

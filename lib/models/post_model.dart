@@ -14,6 +14,9 @@ class Post {
   final int sharesCount;
   final DateTime createdAt;
   final DateTime updatedAt;
+
+  final String? organizationId;
+  final String? organizationName;
   
   Post({
     required this.id,
@@ -29,6 +32,9 @@ class Post {
     required this.sharesCount,
     required this.createdAt,
     required this.updatedAt,
+
+    this.organizationId,
+    this.organizationName,
   });
   
   factory Post.fromFirestore(DocumentSnapshot doc) {
@@ -45,6 +51,8 @@ class Post {
       likesCount: data['likesCount'] ?? 0,
       commentsCount: data['commentsCount'] ?? 0,
       sharesCount: data['sharesCount'] ?? 0,
+      organizationId: data['organizationId'],
+      organizationName: data['organizationName'],
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
@@ -64,6 +72,9 @@ class Post {
       'sharesCount': sharesCount,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
+
+      if (organizationId != null) 'organizationId': organizationId,
+      if (organizationName != null) 'organizationName': organizationName,
     };
   }
 }

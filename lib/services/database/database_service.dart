@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:stateful_widget/models/post_model.dart';
 import 'package:stateful_widget/models/message_model.dart';
+import 'package:stateful_widget/models/marketplace_model.dart';
+import 'package:flutter/material.dart';
 
 class DatabaseService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -139,6 +141,27 @@ class DatabaseService {
         'updatedAt': FieldValue.serverTimestamp(),
       });
       await updateUserStats(authorId, likes: 1);
+      
+      final postDoc = await _firestore.collection('posts').doc(postId).get();
+      String postContent = '';
+      if (postDoc.exists) {
+        final postData = postDoc.data() as Map<String, dynamic>;
+        postContent = postData['content'] as String? ?? '';
+      }
+
+      await createNotification(
+        userId: authorId,
+        type: 'like',
+        title: '${user.displayName ?? "Someone"} liked your post',
+        body: postContent.length > 50
+          ? '${postContent.substring(0, 50)}...'
+          : postContent,
+        senderId: user.uid,
+        senderName: user.displayName ?? 'User',
+        extraData: {
+          'postId': postId,
+        }
+      );
       return true;
     }
   }
@@ -157,7 +180,7 @@ class DatabaseService {
     return likeSnapshot.docs.isNotEmpty;
   }
 
-  Future<void> addComment({
+  Future<String> addComment({
     required String postId,
     required String content,
     bool isAnonymous = false,
@@ -167,7 +190,7 @@ class DatabaseService {
 
     final authorName = isAnonymous ? 'Anonymous' : (user.displayName ?? 'User');
 
-    await _firestore.collection('comments').add({
+    final commentRef = await _firestore.collection('comments').add({
       'postId': postId,
       'userId': user.uid,
       'authorName': authorName,
@@ -180,6 +203,28 @@ class DatabaseService {
       'commentsCount': FieldValue.increment(1),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+
+    // After creating comment, get post author ID first
+    // You need to fetch the post to get authorId
+    final postDoc = await _firestore.collection('posts').doc(postId).get();
+    if (postDoc.exists) {
+      final postData = postDoc.data() as Map<String, dynamic>;
+      final postAuthorId = postData['authorId'];
+      
+      await createNotification(
+        userId: postAuthorId,
+        type: 'comment',
+        title: '${authorName} commented on your post',
+        body: content.length > 50 ? '${content.substring(0, 50)}...' : content,
+        senderId: user.uid,
+        senderName: authorName,
+        extraData: {
+          'postId': postId,
+          'commentId': commentRef.id,
+        },
+      );
+    }
+    return commentRef.id;
   }
 
   Future<void> deleteComment(String commentId, String postId) async {
@@ -265,5 +310,351 @@ class DatabaseService {
     if (d.inDays < 1) return '${d.inHours}h';
     if (d.inDays < 7) return '${d.inDays}d';
     return '${t.month}/${t.day}';
+  }
+
+  // MARKETPLACE
+  Stream<QuerySnapshot<Map<String, dynamic>>> getMarketplaceItemsStream({int limit = 50}) {
+    return _firestore
+      .collection('marketplaceItems')
+      .orderBy('createdAt', descending: true)
+      .limit(limit)
+      .snapshots();
+  }
+
+  Future<String> createMarketplaceItem(MarketplaceItem item) async {
+    final doc = await _firestore.collection('marketplaceItems').add(item.toMap());
+    return doc.id;
+  }
+
+  Future<void> updateMarketplaceItem(MarketplaceItem item) async {
+    await _firestore.collection('marketplaceItems').doc(item.id).update(item.toMap());
+  }
+
+  Future<void> deleteMarketplaceItem(String itemId) async {
+    await _firestore.collection('marketplaceItems').doc(itemId).delete();
+  }
+
+  Future<String> getOrCreateDirectConversation(String otherUserId) async {
+    final user = _auth.currentUser!;
+    final ids = [user.uid, otherUserId]..sort();
+    final convId = '${ids[0]}_${ids[1]}';
+
+    final snap = await _firestore.collection('conversations').doc(convId).get();
+    if (!snap.exists) {
+      //create
+      await _firestore.collection('conversations').doc(convId).set({
+        'memberIds': ids,
+        'type': 'direct',
+        'name': 'Chat',
+        'emoji': '💬',
+        'avatarColor': const Color(0xFFE0F2FF).value,
+        'lastMessage': '',
+        'lastMessageAt': FieldValue.serverTimestamp(),
+      });
+    }
+    return convId;
+  }
+
+  Future<void> sendMessage({
+    required String convId,
+    required String text,
+  }) async {
+
+    final user = _auth.currentUser!;
+    final msg = Message(
+      id: '',
+      conversationId: convId,
+      senderId: user.uid,
+      senderName: user.displayName ?? 'User',
+      content: text.trim(),
+      createdAt: DateTime.now(),
+    );
+
+    //write message
+    await _firestore
+      .collection('conversations')
+      .doc(convId)
+      .collection('messages')
+      .add(msg.toMap());
+
+    // update conversation meta
+    await _firestore.collection('conversations').doc(convId).update({
+      'lastMessage': msg.content,
+      'lastMessageAt': FieldValue.serverTimestamp(),
+    });
+
+    // After sending message, notify the other user
+    final convDoc = await _firestore.collection('conversations').doc(convId).get();
+    if (convDoc.exists) {
+      final convData = convDoc.data() as Map<String, dynamic>;
+      final memberIds = List<String>.from(convData['memberIds'] ?? []);
+      
+      // Find the other user ID
+      for (final memberId in memberIds) {
+        if (memberId != user.uid) {
+          await createNotification(
+            userId: memberId,
+            type: 'message',
+            title: 'New message from ${user.displayName ?? "User"}',
+            body: text.trim().length > 50 
+              ? '${text.trim().substring(0, 50)}...' 
+              : text.trim(),
+            senderId: user.uid,
+            senderName: user.displayName ?? 'User',
+            extraData: {
+              'conversationId': convId,
+            },
+          );
+          break;
+        }
+      }
+    }
+  }
+
+  // Listen to messages in a conversation 
+  Stream<QuerySnapshot> getMessagesStream(String convId) {
+    return _firestore
+      .collection('conversations')
+      .doc(convId)
+      .collection('messages')
+      .orderBy('createdAt', descending: true)
+      .snapshots();
+  }
+
+  // listen to converstaion that current user belongs to
+  Stream<QuerySnapshot> getConversationsStream() {
+    final user = _auth.currentUser!;
+    return _firestore
+      .collection('conversations')
+      .where('memberIds', arrayContains: user.uid)
+      .orderBy('lastMessageAt', descending: true)
+      .snapshots();
+  }
+
+  // get user doc snapshot at once 
+  Future<DocumentSnapshot> getUser(String uid) => _firestore.collection('users').doc(uid).get();
+
+  Future<Map<String, dynamic>?> getUserData(String userId) async {
+    try {
+      final doc = await _firestore.collection('users').doc(userId).get();
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>;
+        return {
+          'displayName': data['displayName'],
+          'email': data['email'] ?? '',
+          'photoURL': data['photoURL'],
+        };
+      }
+      return null;
+    } catch (e) {
+      print('Error fetching user data: $e');
+      return null;
+    }
+  }
+
+  // ============ NOTIFICATION METHODS ============
+
+  /// Create a notification
+  Future<void> createNotification({
+    required String userId,
+    required String type,
+    required String title,
+    required String body,
+    required String senderId,
+    required String senderName,
+    Map<String, dynamic>? extraData,
+  }) async {
+    try {
+      final Map<String, dynamic> data = {
+        'senderId': senderId,
+        'senderName': senderName,
+      };
+      
+      if (extraData != null) {
+        data.addAll(extraData);
+      }
+      
+      await _firestore.collection('notifications').add({
+        'userId': userId,
+        'type': type,
+        'title': title,
+        'body': body,
+        'isRead': false,
+        'data': data,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      
+      print('✅ Notification created for user: $userId, type: $type');
+    } catch (e) {
+      print('❌ Error creating notification: $e');
+    }
+  }
+
+  /// Get real-time stream of user notifications
+  Stream<QuerySnapshot> getUserNotificationsStream(String userId) {
+    return _firestore
+        .collection('notifications')
+        .where('userId', isEqualTo: userId)
+        .orderBy('createdAt', descending: true)
+        .snapshots();
+  }
+
+  /// Mark a single notification as read
+  Future<void> markNotificationAsRead(String notificationId) async {
+    try {
+      await _firestore.collection('notifications').doc(notificationId).update({
+        'isRead': true,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      print('Error marking notification as read: $e');
+    }
+  }
+
+  /// Mark all notifications as read for a user
+  Future<void> markAllNotificationsAsRead(String userId) async {
+    try {
+      final snapshot = await _firestore
+          .collection('notifications')
+          .where('userId', isEqualTo: userId)
+          .where('isRead', isEqualTo: false)
+          .get();
+
+      if (snapshot.docs.isEmpty) return;
+
+      final batch = _firestore.batch();
+      for (final doc in snapshot.docs) {
+        batch.update(doc.reference, {
+          'isRead': true,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+      await batch.commit();
+    } catch (e) {
+      print('Error marking all notifications as read: $e');
+    }
+  }
+
+  /// Get unread notification count
+  Stream<int> getUnreadNotificationCount(String userId) {
+    return _firestore
+        .collection('notifications')
+        .where('userId', isEqualTo: userId)
+        .where('isRead', isEqualTo: false)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.length);
+  }
+
+  // Add this method to your DatabaseService class
+  Future<List<MarketplaceItem>> getMarketplaceItemsByAuthor(String authorId) async {
+    try {
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('marketplace')
+          .where('authorId', isEqualTo: authorId)
+          .orderBy('createdAt', descending: true)
+          .get();
+      
+      return querySnapshot.docs
+          .map((doc) => MarketplaceItem.fromFirestore(doc))
+          .toList();
+    } catch (e) {
+      print('Error getting marketplace items by author: $e');
+      rethrow;
+    }
+  }
+
+ Future<List<Post>> getOrganizationAnnouncementsAsPosts() async {
+    try {
+      // Get all active organizations
+      final organizationsSnapshot = await _firestore
+          .collection('organizations')
+          .where('status', isEqualTo: 'active')
+          .get();
+      
+      final allAnnouncementPosts = <Post>[];
+      
+      // For each organization, get its announcements
+      for (final orgDoc in organizationsSnapshot.docs) {
+        final orgData = orgDoc.data() as Map<String, dynamic>;
+        final orgId = orgDoc.id;
+        final orgName = orgData['name'] ?? 'Organization';
+        
+        try {
+          // SIMPLIFIED QUERY: Get ALL announcements without any filters or ordering
+          // We'll handle filtering and sorting in memory
+          final announcementsSnapshot = await _firestore
+              .collection('organizations')
+              .doc(orgId)
+              .collection('announcements')
+              .get(); // NO where() clause, NO orderBy()
+          
+          // Process each announcement
+          for (final annDoc in announcementsSnapshot.docs) {
+            final annData = annDoc.data() as Map<String, dynamic>;
+            
+            // Skip archived announcements
+            if (annData['isArchived'] == true) {
+              continue;
+            }
+            
+            // Get creator user data for the avatar/name
+            final creatorId = annData['createdBy'] ?? '';
+            Map<String, dynamic>? creatorData;
+            if (creatorId.isNotEmpty) {
+              try {
+                creatorData = await getUserData(creatorId);
+              } catch (e) {
+                print('Error getting user data for $creatorId: $e');
+              }
+            }
+            
+            // Get timestamp safely
+            DateTime createdAt;
+            try {
+              final timestamp = annData['createdAt'] as Timestamp?;
+              createdAt = timestamp?.toDate() ?? DateTime.now();
+            } catch (e) {
+              createdAt = DateTime.now();
+            }
+            
+            // Create Post object from Announcement
+            final post = Post(
+              id: 'org_ann_${orgId}_${annDoc.id}', // Unique ID
+              authorId: creatorId,
+              authorName: annData['createdByName'] ?? orgName,
+              authorPhoto: annData['createdByPhotoUrl'] ?? creatorData?['photoURL'],
+              content: '${annData['title'] ?? ''}\n\n${annData['description'] ?? ''}',
+              category: 'Organization Announcement',
+              emoji: '🏢',
+              likesCount: annData['likes'] ?? 0,
+              commentsCount: annData['comments'] ?? 0,
+              sharesCount: 0,
+              createdAt: createdAt,
+              updatedAt: createdAt,
+              isAnonymous: false,
+              // Organization metadata
+              organizationId: orgId,
+              organizationName: orgName,
+            );
+            
+            allAnnouncementPosts.add(post);
+          }
+        } catch (e) {
+          print('Error loading announcements for org $orgId: $e');
+          // Continue with other organizations even if one fails
+          continue;
+        }
+      }
+      
+      // Sort all announcements by date (newest first)
+      allAnnouncementPosts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      
+      print('✅ Loaded ${allAnnouncementPosts.length} organization announcements');
+      return allAnnouncementPosts;
+    } catch (e) {
+      print('❌ Error loading organization announcements: $e');
+      return [];
+    }
   }
 }

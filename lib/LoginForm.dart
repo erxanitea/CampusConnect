@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:stateful_widget/services/auth/google_auth.dart';
+import 'package:stateful_widget/services/admin/admin_service.dart';
 
 class LoginForm extends StatefulWidget {
   const LoginForm({super.key});
@@ -72,22 +73,12 @@ class _LoginFormState extends State<LoginForm> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.5),
-                    ),
-                  ),
-                  child: const Icon(
-                    Icons.school_outlined,
-                    color: Colors.white,
-                    size: 48,
-                  ),
+                Image.asset(
+                  'assets/icons/logo.png',
+                  width: 120,
+                  height: 120,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 0),
                 const Text(
                   'CampusConnect',
                   style: TextStyle(
@@ -169,17 +160,38 @@ class _LoginFormState extends State<LoginForm> {
                               try {
                                 final GoogleAuth googleAuth = GoogleAuth();
                                 final User? user = await googleAuth.signInWithGoogle();
-                                
-                                if (user != null && context.mounted) {
-                                  Navigator.pushReplacementNamed(context, '/home');
+
+                                print('Google Sign-In completed. User: ${user?.email}');
+    
+                                  if (user != null && context.mounted) {
+                                    print('User authenticated: ${user.email}');
+                                    print('User UID: ${user.uid}');
+                                    
+                                    final adminService = AdminService();
+                                    final String userEmail = user.email!.toLowerCase();
+
+                                    final bool isAdmin = userEmail == 'e.dumangcas.549356@umindanao.edu.ph' || 
+                                    await adminService.isAdminByEmail(userEmail);
+
+                                    print('User email: $userEmail');
+                                    print('Is admin? $isAdmin');
+                                  if (isAdmin) {
+                                    Navigator.pushReplacementNamed(context, '/admin');
+                                  }
+                                  else {
+                                    Navigator.pushReplacementNamed(context, '/home');
+                                  }
                                 }
-                              } catch (e) {
+                              } catch (e, stackTrace) {
                                 print('Google Sign-In error: $e');
+                                print('Stack trace: $stackTrace');
+
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text('Google Sign-In failed: $e'),
                                       backgroundColor: Colors.red,
+                                      duration: Duration(seconds: 3),
                                     ),
                                   );
                                 }

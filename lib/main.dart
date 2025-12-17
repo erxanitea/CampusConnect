@@ -10,8 +10,11 @@ import 'package:stateful_widget/services/auth/google_auth.dart';
 import 'firebase_options.dart';
 import 'package:stateful_widget/student_wall_page.dart';
 import 'package:stateful_widget/messages_page.dart';
+import 'package:stateful_widget/alerts_page.dart';
 import 'package:stateful_widget/services/database/database_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:stateful_widget/services/admin/admin_auth_wrapper.dart';
+import 'package:stateful_widget/admin/admin_dashboard.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -150,6 +153,11 @@ class MyApp extends StatelessWidget {
         '/marketplace': (context) => const MarketplacePage(),
         '/wall': (context) => const StudentWallPage(),
         '/messages': (context) => const MessagesPage(),
+        '/alerts': (context) => const AlertsPage(),
+        '/admin': (context) => AdminAuthWrapper(
+          adminChild: const AdminDashboard(),
+          userChild: const HomePage(),
+        ),
       },
     );
   }

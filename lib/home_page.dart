@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:async';
 import 'package:stateful_widget/widgets/campus_bottom_nav.dart';
 import 'package:stateful_widget/widgets/floating_messages_button.dart';
@@ -18,6 +19,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _navIndex = 0;
+  int _messageBadgeCount = 0;
 
   void _handleNavTap(int index) {
     setState(() {
@@ -41,9 +43,9 @@ class _HomePageState extends State<HomePage> {
         }
         break;
       case 3:
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Alerts coming soon!')),
-        );
+        if (ModalRoute.of(context)?.settings.name != '/alerts') {
+          Navigator.pushReplacementNamed(context, '/alerts');
+        }
         break;
       case 4:
         if (ModalRoute.of(context)?.settings.name != '/profile') {
@@ -91,6 +93,7 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _loadPosts();
+    _loadUnreadMessageCount();
   }
 
   @override
@@ -99,28 +102,71 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
+  void _loadUnreadMessageCount() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      _databaseService.getUnreadNotificationCount(user.uid).listen((count) {
+        if (mounted) {
+          setState(() {
+            _messageBadgeCount = count;
+          });
+        }
+      });
+    }
+  }
+
   void _loadPosts() {
     _isLoading = true;
-    _postsSubscription = _databaseService.getPostsStream().listen((snapshot) {
+    
+    // Load regular posts
+    _postsSubscription = _databaseService.getPostsStream().listen((snapshot) async {
       if (snapshot.docs.isEmpty) {
+        // If no regular posts, still try to load org announcements
+        final orgAnnouncements = await _databaseService.getOrganizationAnnouncementsAsPosts();
+        
         if (mounted) {
           setState(() {
             _isLoading = false;
-            _allPosts = [];
-            _confessions = [];
+            _allPosts = orgAnnouncements;
+            _confessions = orgAnnouncements.where((post) => post.category == 'Confession').toList();
           });
         }
         return;
       }
-      final posts = snapshot.docs.map((doc) => Post.fromFirestore(doc)).toList();
-      final confessions = posts.where((post) => post.category == 'Confession').toList();
-
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _allPosts = posts;
-          _confessions = confessions;
-        });
+      
+      try {
+        // Get regular posts
+        final posts = snapshot.docs.map((doc) => Post.fromFirestore(doc)).toList();
+        
+        // Get organization announcements (ASYNC)
+        final orgAnnouncements = await _databaseService.getOrganizationAnnouncementsAsPosts();
+        
+        // Combine and sort by date (newest first)
+        final allContent = [...posts, ...orgAnnouncements]
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        
+        final confessions = allContent.where((post) => post.category == 'Confession').toList();
+        
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _allPosts = allContent;
+            _confessions = confessions;
+          });
+        }
+      } catch (e) {
+        print('Error combining posts: $e');
+        // Fallback: just show regular posts
+        final posts = snapshot.docs.map((doc) => Post.fromFirestore(doc)).toList();
+        final confessions = posts.where((post) => post.category == 'Confession').toList();
+        
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _allPosts = posts;
+            _confessions = confessions;
+          });
+        }
       }
     }, onError: (error) {
       if (mounted) {
@@ -134,14 +180,16 @@ class _HomePageState extends State<HomePage> {
 
   List<Post> get _displayedPosts {
     switch (_selectedFilter) {
-      case 0:
+      case 0: // All - show everything
         return _allPosts;
-      case 1:
-        return _allPosts.where((post) => post.category == 'Announcement').toList();
-      case 2:
+      case 1: // Orgs - show organization announcements
+        return _allPosts.where((post) {
+          return post.organizationId != null && post.organizationId!.isNotEmpty;
+        }).toList();
+      case 2: // Confessions
         return _confessions;
       default:
-        return _allPosts;
+        return _allPosts;    
     }
   }
 
@@ -152,8 +200,8 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       backgroundColor: Colors.white,
       floatingActionButton: FloatingMessagesButton(
-        badgeCount: 4,
-        onPressed: () {},
+        badgeCount: _messageBadgeCount,
+        onPressed: () => Navigator.pushNamed(context, '/messages'),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: CampusBottomNav(
@@ -312,110 +360,96 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildRecentMessagesCard(ThemeData theme) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFFFF9F5), Color(0xFFFFF0EB)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(26),
-        border: const Border(
-          left: BorderSide(color: Color(0xFFB01F1F), width: 5),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+  return StreamBuilder<QuerySnapshot>(
+    stream: DatabaseService().getConversationsStream().take(3),
+    builder: (context, snap) {
+      if (!snap.hasData || snap.data!.docs.isEmpty) {
+        return const SizedBox(); // hide if no chats
+      }
+      final conversations = snap.data!.docs.map((doc) {
+        final d = doc.data() as Map<String, dynamic>;
+        final memberIds = List<String>.from(d['memberIds'] ?? []);
+        final otherId = memberIds.firstWhere((id) => id != FirebaseAuth.instance.currentUser!.uid,
+            orElse: () => memberIds.first);
+        return {
+          'name': d['name'] ?? 'Chat',
+          'preview': d['lastMessage'] ?? '',
+          'badge': 0,
+          'color': Color(d['avatarColor'] ?? 0xFFE0F2FF),
+          'emoji': d['emoji'] ?? '💬',
+        };
+      }).toList();
+
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFFFFF9F5), Color(0xFFFFF0EB)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.chat_bubble_outline,
-                    color: const Color(0xFF7C000F),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Recent Messages',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF7C000F),
-                    ),
-                  ),
-                ],
-              ),
-              GestureDetector(
-                onTap: () => Navigator.pushNamed(context, '/messages'),
-                child: Text(
-                  'View All',
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: const Color(0xFFBD2C1A),
-                    fontWeight: FontWeight.w600,
-                  ),
+          borderRadius: BorderRadius.circular(26),
+          border: const Border(left: BorderSide(color: Color(0xFFB01F1F), width: 5)),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, 10)),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.chat_bubble_outline, color: Color(0xFF7C000F)),
+                    const SizedBox(width: 8),
+                    Text('Recent Messages', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                  ],
                 ),
-              ),
+                GestureDetector(
+                  onTap: () => Navigator.pushNamed(context, '/messages'),
+                  child: Text('View All', style: theme.textTheme.labelLarge?.copyWith(color: const Color(0xFFBD2C1A))),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            ...conversations.take(3).map((c) => _messageRow(c, theme)).toList(),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+Widget _messageRow(Map<String, dynamic> c, ThemeData theme) {
+  final bool hasBadge = c['badge'] as int > 0;
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 10),
+    child: Row(
+      children: [
+        CircleAvatar(
+          radius: 24,
+          backgroundColor: c['color'] as Color,
+          child: Text(c['emoji'] as String, style: const TextStyle(fontSize: 20)),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(c['name'] as String, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 2),
+              Text(c['preview'] as String, style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey[600])),
             ],
           ),
-          const SizedBox(height: 18),
-          ..._recentMessages.map((message) {
-            final bool hasBadge = message['badge'] as int > 0;
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 24,
-                    backgroundColor: message['color'] as Color,
-                    child: Text(
-                      message['emoji'] as String,
-                      style: const TextStyle(fontSize: 20),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          message['name'] as String,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          message['preview'] as String,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (hasBadge)
-                    _buildBadge(
-                      message['badge'] as int,
-                      color: const Color(0xFFBD2C1A),
-                    ),
-                ],
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
+        ),
+        if (hasBadge) _buildBadge(c['badge'] as int),
+      ],
+    ),
+  );
+}
 
 
   Widget _reactionItem(IconData icon, int count, {VoidCallback? onTap}) {
